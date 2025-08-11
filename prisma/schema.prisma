@@ -1,0 +1,132 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+model UserProfile {
+  id              String           @id @default(uuid())
+  username        String           @unique
+  email           String           @unique
+  password        String?          
+  image           String?
+  coverImage      String?
+  googleId        String?          @unique
+  provider        String?
+  firstName       String?
+  lastName        String?
+  role            UserRole         @default(CREATOR)
+
+  creatorProfile  CreatorProfile?
+  businessProfile BusinessProfile?
+  youtubeStats    YouTubeStats?
+  youTubeAuth     YouTubeAuth?
+
+  emailVerified   Boolean          @default(false)
+
+  otp             String?
+  otpExpiry       DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+}
+
+model CreatorProfile {
+  id             String          @id @default(uuid())
+  userProfileId  String          @unique
+  creatorType    CreatorType
+  data           Json
+  recentContent  RecentContent[] 
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  userProfile    UserProfile     @relation(fields: [userProfileId], references: [id], onDelete: Cascade)
+}
+
+model BusinessProfile {
+  id             String          @id @default(uuid())
+  userProfileId  String          @unique
+  companyName    String
+  website        String?
+  contactEmail   String
+  phone          String?
+  about          String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  userProfile    UserProfile     @relation(fields: [userProfileId], references: [id], onDelete: Cascade)
+}
+
+model YouTubeAuth {
+  id             String   @id @default(uuid())
+  userProfileId  String   @unique
+  refreshToken   String
+  accessToken    String?
+  expiryDate     DateTime?
+  scope          String?
+  tokenType      String?
+  googleId       String
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  userProfile    UserProfile @relation(fields: [userProfileId], references: [id], onDelete: Cascade)
+}
+
+model YouTubeStats {
+  id             String   @id @default(uuid())
+  userProfileId  String   @unique
+  stats          Json
+  updatedAt      DateTime @updatedAt
+
+  userProfile    UserProfile @relation(fields: [userProfileId], references: [id], onDelete: Cascade)
+}
+
+model RecentContent {
+  id               String          @id @default(uuid())
+  creatorProfileId String
+  contentType      ContentType     
+  title            String
+  description      String?
+  url              String?       
+  mediaUrls        String[]       
+  metrics          Json?          
+  metadata         Json?          
+  isActive         Boolean         @default(true)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  creatorProfile   CreatorProfile  @relation(fields: [creatorProfileId], references: [id], onDelete: Cascade)
+
+  @@index([creatorProfileId, contentType])
+}
+
+enum ContentType {
+  VIDEO
+  SINGLE_IMAGE
+  MULTIPLE_IMAGES
+  TEXT_POST
+}
+
+enum UserRole {
+  CREATOR
+  BUSINESS
+}
+
+enum CreatorType {
+  YOUTUBER
+  COMEDIAN
+  INFLUENCER
+  MUSICIAN
+  DANCER
+  PHOTOGRAPHER
+  PODCASTER
+  ACTOR
+}
