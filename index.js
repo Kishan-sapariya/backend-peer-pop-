@@ -2,6 +2,9 @@ import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import dotenv from "dotenv";
+import { createServer } from "http";
+import { Server } from "socket.io";
+
 import authRoutes from "./routes/authRoute.js";
 import googleRoutes from "./routes/googleRoutes.js";
 import youtubeRoutes from "./routes/youtubeRoute.js";
@@ -10,14 +13,17 @@ import influencerRoutes from "./routes/influencerRoute.js";
 import filmMakerRoutes from "./routes/filmMakerRoute.js";
 import musicianRoutes from "./routes/musicianRoute.js";
 import dancerRoutes from "./routes/dancerRoute.js";
+import connectionRoutes from "./routes/connectionRoute.js";
 import connectWithYoutubeRoutes from "./routes/connectWithYoutubeRoute.js";
+import conversationRoutes from "./routes/conversationRoute.js";
 import passport from "./config/passport.js";
-dotenv.config();
+import "./cron/updateYoutubeStats.js";
 
-import "./cron/updateYoutubeStats.js"
+dotenv.config();
 
 const app = express();
 
+// middlewares
 app.use(
   cors({
     origin: "http://localhost:3000",
@@ -30,6 +36,7 @@ app.use(express.json());
 app.use(cookieParser());
 app.use(passport.initialize());
 
+// routes
 app.use("/api/auth/", authRoutes);
 app.use("/api/auth/", googleRoutes);
 app.use("/api/youtube/", youtubeRoutes);
@@ -39,8 +46,39 @@ app.use("/api/influencer/", influencerRoutes);
 app.use("/api/filmmaker/", filmMakerRoutes);
 app.use("/api/musician/", musicianRoutes);
 app.use("/api/dancer/", dancerRoutes);
+app.use("/api/connection", connectionRoutes);
+app.use("/api/conversation", conversationRoutes);
+
+const server = createServer(app);
+
+const io = new Server(server, {
+  cors: {
+    origin: "http://localhost:3000",
+    methods: ["GET", "POST"],
+    credentials: true,
+  },
+});
+
+io.on("connection", (socket) => {
+  console.log("🔌 New client connected:", socket.id); 
+
+  socket.on("join", (userId) => {
+    socket.join(userId);
+    console.log(`User ${userId} joined their room`);
+  });
+
+  socket.on("sendMessage", ({ receiverId, message }) => {
+    io.to(receiverId).emit("receiveMessage", message);
+  });
+
+  socket.on("disconnect", () => {
+    console.log("❌ Client disconnected:", socket.id);
+  });
+});
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+server.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
 });
+
+export { io };

@@ -18,7 +18,7 @@ const router = express.Router();
 
 router.post("/create-profile", protectedRoute, createYoutubeProfile);
 router.get("/profile/:username", protectedRoute, getYoutubeProfileByUsername);
-router.get("/stats", protectedRoute, getYoutubeStats);
+router.get("/stats/:profileId", protectedRoute, getYoutubeStats);
 router.post(
   "/recent-content",
   upload.fields([

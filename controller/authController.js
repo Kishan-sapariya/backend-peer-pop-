@@ -195,6 +195,7 @@ export const getCurrentUser = async (req, res) => {
     }
     return res.status(200).json({
       user: {
+        id:user.id,
         username: user.username,
         email: user.email,
         emailVerified: user.emailVerified,

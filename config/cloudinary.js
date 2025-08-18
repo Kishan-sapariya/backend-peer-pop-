@@ -35,6 +35,20 @@ export const uploadOptions = {
       { width: 400, height: 300, crop: "thumb" },
     ],
   },
+  document: {
+    resource_type: "raw",
+    folder: "recent-content/documents",
+    allowed_formats: [
+      "pdf",
+      "doc",
+      "docx",
+      "txt",
+      "ppt",
+      "pptx",
+      "xls",
+      "xlsx",
+    ],
+  },
 };
 
 export const streamUpload = (buffer, options) => {

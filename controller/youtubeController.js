@@ -50,7 +50,13 @@ export const getYoutubeProfileByUsername = async (req, res) => {
     // Find the user by username
     const user = await prisma.userProfile.findUnique({
       where: { username },
-      select: { id: true, email: true, username: true, image: true,coverImage:true },
+      select: {
+        id: true,
+        email: true,
+        username: true,
+        image: true,
+        coverImage: true,
+      },
     });
 
     if (!user) {
@@ -89,20 +95,17 @@ export const getYoutubeProfileByUsername = async (req, res) => {
 };
 
 export const getYoutubeStats = async (req, res) => {
-  const { id: userId } = req.user;
+  const { profileId } = req.params;
+
   try {
-    const user = await prisma.userProfile.findUnique({
-      where: { id:userId },
-    });
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
     const stats = await prisma.youTubeStats.findUnique({
-      where: { userProfileId:userId },
+      where: { userProfileId: profileId },
     });
 
     if (!stats) {
-      return res.status(404).json({ message: "YouTube stats not found" });
+      return res
+        .status(404)
+        .json({ message: "YouTube stats not found for this profile" });
     }
 
     return res.status(200).json({

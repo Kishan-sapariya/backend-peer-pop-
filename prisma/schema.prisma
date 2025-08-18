@@ -12,6 +12,37 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
+enum ConnectionStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  CANCELLED
+}
+
+enum ContentType {
+  VIDEO
+  SINGLE_IMAGE
+  MULTIPLE_IMAGES
+  TEXT_POST
+}
+
+enum UserRole {
+  CREATOR
+  BUSINESS
+}
+
+enum CreatorType {
+  YOUTUBER
+  COMEDIAN
+  INFLUENCER
+  MUSICIAN
+  DANCER
+  PHOTOGRAPHER
+  PODCASTER
+  ACTOR
+}
+
 model UserProfile {
   id              String           @id @default(uuid())
   username        String           @unique
@@ -29,6 +60,10 @@ model UserProfile {
   businessProfile BusinessProfile?
   youtubeStats    YouTubeStats?
   youTubeAuth     YouTubeAuth?
+  requestsSent     Connection[]    @relation("RequestSent")
+  requestsReceived Connection[]    @relation("RequestReceived")
+  conversationParticipants ConversationParticipant[]
+  sentMessages     Message[] @relation("UserMessages")
 
   emailVerified   Boolean          @default(false)
 
@@ -36,6 +71,20 @@ model UserProfile {
   otpExpiry       DateTime?
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
+}
+
+model Connection {
+  id            String      @id @default(uuid())
+  senderId   String      
+  receiverId    String      
+  status        ConnectionStatus @default(PENDING)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  sender   UserProfile @relation("RequestSent", fields: [senderId], references: [id])
+  receiver UserProfile @relation("RequestReceived", fields: [receiverId], references: [id])
+
+  @@unique([senderId, receiverId]) 
 }
 
 model CreatorProfile {
@@ -108,25 +157,35 @@ model RecentContent {
   @@index([creatorProfileId, contentType])
 }
 
-enum ContentType {
-  VIDEO
-  SINGLE_IMAGE
-  MULTIPLE_IMAGES
-  TEXT_POST
+model Conversation {
+  id           String                     @id @default(uuid())
+  createdAt    DateTime                   @default(now())
+  updatedAt    DateTime                   @updatedAt
+
+  participants ConversationParticipant[]
+  messages     Message[]
 }
 
-enum UserRole {
-  CREATOR
-  BUSINESS
+model ConversationParticipant {
+  id             String        @id @default(uuid())
+  conversationId String
+  userId         String
+
+  conversation Conversation @relation(fields: [conversationId], references: [id])
+  user         UserProfile   @relation(fields: [userId], references: [id])
+
+  @@unique([conversationId, userId])
 }
 
-enum CreatorType {
-  YOUTUBER
-  COMEDIAN
-  INFLUENCER
-  MUSICIAN
-  DANCER
-  PHOTOGRAPHER
-  PODCASTER
-  ACTOR
+model Message {
+  id             String      @id @default(uuid())
+  conversationId String
+  senderId       String
+  content        String?
+  attachmentUrl  String?
+  attachmentType String?
+  createdAt      DateTime    @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id])
+  sender       UserProfile  @relation("UserMessages", fields: [senderId], references: [id])
 }
