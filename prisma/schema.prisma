@@ -43,6 +43,23 @@ enum CreatorType {
   ACTOR
 }
 
+enum NotificationType {
+  CONNECTION_REQUEST
+  CONNECTION_ACCEPTED
+  CONNECTION_REJECTED
+  COLLAB_REQUEST
+  COLLAB_ACCEPTED
+  COLLAB_REJECTED
+  MESSAGE
+}
+
+enum PostCategory {
+  COLLABORATION
+  OPPORTUNITY
+  SHOWCASE
+  GENERAL
+}
+
 model UserProfile {
   id              String           @id @default(uuid())
   username        String           @unique
@@ -64,6 +81,11 @@ model UserProfile {
   requestsReceived Connection[]    @relation("RequestReceived")
   conversationParticipants ConversationParticipant[]
   sentMessages     Message[] @relation("UserMessages")
+  sentNotifications     Notification[] @relation("SentNotifications")
+  receivedNotifications Notification[] @relation("ReceivedNotifications")
+  post            Post[]
+  comments        Comment[] 
+  likes           Like[]
 
   emailVerified   Boolean          @default(false)
 
@@ -189,3 +211,58 @@ model Message {
   conversation Conversation @relation(fields: [conversationId], references: [id])
   sender       UserProfile  @relation("UserMessages", fields: [senderId], references: [id])
 }
+
+model Notification {
+  id          String   @id @default(cuid())
+  type        NotificationType
+  senderId    String   
+  receiverId  String   
+  message     String   
+  isRead      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  sender   UserProfile @relation("SentNotifications", fields: [senderId], references: [id])
+  receiver UserProfile @relation("ReceivedNotifications", fields: [receiverId], references: [id])
+}
+
+
+model Post {
+  id          String       @id @default(uuid())
+  userId      String
+  category    PostCategory
+  customLabel String?      // for CUSTOM posts
+  description String?
+  hashtags    String[]     // array of hashtags (#collab, #design, etc.)
+  mediaUrls   String[]     // supports multiple images/videos
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  user        UserProfile  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  likes       Like[]
+  comments    Comment[]
+}
+
+model Like {
+  id        String     @id @default(uuid())
+  postId    String
+  userId    String
+  createdAt DateTime   @default(now())
+
+  post      Post       @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user      UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId]) // prevent multiple likes by same user
+}
+
+model Comment {
+  id        String     @id @default(uuid())
+  postId    String
+  userId    String
+  content   String
+  createdAt DateTime   @default(now())
+
+  post      Post       @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user      UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+

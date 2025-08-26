@@ -1,4 +1,5 @@
 import prisma from "../util/prisma.js";
+import { createNotification } from "./notificationController.js";
 
 export const sendConnectionReq = async (req, res) => {
   const senderId = req.user.id;
@@ -40,17 +41,30 @@ export const sendConnectionReq = async (req, res) => {
         .json({ message: "Connection request already exists" });
     }
 
-    const newRequest = await prisma.connection.create({
-      data: {
+    const result = await prisma.$transaction(async (tx) => {
+      // 1. Create new connection
+      const newRequest = await tx.connection.create({
+        data: {
+          senderId,
+          receiverId,
+          status: "PENDING",
+        },
+      });
+
+      // 2. Create notification
+      await createNotification(tx, {
+        type: "CONNECTION_REQUEST",
         senderId,
         receiverId,
-        status: "PENDING",
-      },
+        message: `${sender.username} sent you a connection request`,
+      });
+
+      return newRequest;
     });
 
     return res
       .status(201)
-      .json({ message: "Connection request sent", request: newRequest });
+      .json({ message: "Connection request sent", request: result });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "Internal server error" });
@@ -95,6 +109,7 @@ export const getConnections = async (req, res) => {
 export const acceptRequest = async (req, res) => {
   const { id: userId } = req.user;
   const { connectionId } = req.params;
+
   try {
     const connection = await prisma.connection.findUnique({
       where: { id: connectionId },
@@ -105,29 +120,51 @@ export const acceptRequest = async (req, res) => {
         status: true,
       },
     });
+
     if (!connection) {
       return res.status(404).json({ message: "No connection request found" });
     }
+
     if (connection.receiverId !== userId) {
       return res
         .status(403)
         .json({ message: "You cannot accept this request" });
     }
+
     if (connection.status === "ACCEPTED") {
-      return res.status(200).json({ message: "request already accepted" });
+      return res.status(200).json({ message: "Request already accepted" });
     }
+
     if (connection.status !== "PENDING") {
-      return res.status(404).json({
-        message: `Connot accept the request with status ${connection.status}`,
+      return res.status(400).json({
+        message: `Cannot accept the request with status ${connection.status}`,
       });
     }
-    const updatedRequest = await prisma.connection.update({
-      where: { id: connectionId },
-      data: { status: "ACCEPTED" },
+    const receiver = await prisma.userProfile.findUnique({
+      where: { id: userId },
+      select: { username: true },
     });
-    return res
-      .status(200)
-      .json({ message: "Request Accpected", updatedRequest });
+
+    const result = await prisma.$transaction(async (tx) => {
+      const updatedRequest = await tx.connection.update({
+        where: { id: connectionId },
+        data: { status: "ACCEPTED" },
+      });
+
+      await createNotification(tx, {
+        type: "CONNECTION_ACCEPTED",
+        senderId: userId,
+        receiverId: connection.senderId,
+        message: `${receiver.username} accepted your connection request`,
+      });
+
+      return updatedRequest;
+    });
+
+    return res.status(200).json({
+      message: "Request Accepted",
+      updatedRequest: result,
+    });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "Internal server error" });
@@ -137,6 +174,7 @@ export const acceptRequest = async (req, res) => {
 export const rejectRequest = async (req, res) => {
   const { id: userId } = req.user;
   const { connectionId } = req.params;
+
   try {
     const connection = await prisma.connection.findUnique({
       where: { id: connectionId },
@@ -147,29 +185,51 @@ export const rejectRequest = async (req, res) => {
         status: true,
       },
     });
+
     if (!connection) {
       return res.status(404).json({ message: "No connection request found" });
     }
+
     if (connection.receiverId !== userId) {
       return res
         .status(403)
         .json({ message: "You cannot reject this request" });
     }
+
     if (connection.status === "REJECTED") {
-      return res.status(200).json({ message: "request already rejected" });
+      return res.status(200).json({ message: "Request already rejected" });
     }
+
     if (connection.status !== "PENDING") {
-      return res.status(404).json({
-        message: `Connot accept the request with status ${connection.status}`,
+      return res.status(400).json({
+        message: `Cannot reject the request with status ${connection.status}`,
       });
     }
-    const updatedRequest = await prisma.connection.update({
-      where: { id: connectionId },
-      data: { status: "REJECTED" },
+
+    const receiver = await prisma.userProfile.findUnique({
+      where: { id: userId },
+      select: { username: true },
     });
+
+    const result = await prisma.$transaction(async (tx) => {
+      const updatedRequest = await tx.connection.update({
+        where: { id: connectionId },
+        data: { status: "REJECTED" },
+      });
+
+      await createNotification(tx, {
+        type: "CONNECTION_REJECTED",
+        senderId: userId,
+        receiverId: connection.senderId,
+        message: `${receiver.username} rejected your connection request`,
+      });
+
+      return updatedRequest;
+    });
+
     return res
       .status(200)
-      .json({ message: "Request rejected", updatedRequest });
+      .json({ message: "Request rejected", updatedRequest: result });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "Internal server error" });
@@ -194,7 +254,9 @@ export const deleteConnection = async (req, res) => {
     const deletedConnection = await prisma.connection.delete({
       where: { id: connectionId },
     });
-    return res.status(200).json({ message: "Request rejected", deletedConnection });
+    return res
+      .status(200)
+      .json({ message: "Request rejected", deletedConnection });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "Internal server error" });

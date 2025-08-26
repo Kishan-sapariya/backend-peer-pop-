@@ -195,7 +195,7 @@ export const getCurrentUser = async (req, res) => {
     }
     return res.status(200).json({
       user: {
-        id:user.id,
+        id: user.id,
         username: user.username,
         email: user.email,
         emailVerified: user.emailVerified,
@@ -335,3 +335,116 @@ export const uploadCoverImage = async (req, res) => {
     console.log(error);
   }
 };
+
+export async function searchUsers(req, res) {
+  try {
+    const { q, creatorType, location, cursor, limit = 10 } = req.query;
+
+    const take = Math.min(parseInt(limit) || 10, 50);
+
+    const OR = [];
+    const AND = [];
+
+    if (q && q.trim()) {
+      OR.push(
+        // username starts with "q"
+        { username: { startsWith: q, mode: "insensitive" } },
+
+        // username contains "q" anywhere
+        { username: { contains: q, mode: "insensitive" } },
+
+        // firstName starts with "q"
+        {
+          creatorProfile: {
+            is: { data: { path: ["firstName"], string_starts_with: q } },
+          },
+        },
+        // firstName contains "q"
+        {
+          creatorProfile: {
+            is: { data: { path: ["firstName"], string_contains: q } },
+          },
+        },
+
+        // lastName starts with "q"
+        {
+          creatorProfile: {
+            is: { data: { path: ["lastName"], string_starts_with: q } },
+          },
+        },
+        // lastName contains "q"
+        {
+          creatorProfile: {
+            is: { data: { path: ["lastName"], string_contains: q } },
+          },
+        }
+      );
+    }
+
+    if (creatorType) {
+      const types = Array.isArray(creatorType)
+        ? creatorType
+        : creatorType.split(",");
+
+      AND.push({
+        creatorProfile: {
+          is: {
+            creatorType: { in: types },
+          },
+        },
+      });
+    }
+
+    if (location) {
+      const locations = Array.isArray(location)
+        ? location
+        : location.split(",");
+
+      AND.push({
+        OR: locations.map((loc) => ({
+          creatorProfile: {
+            is: {
+              data: {
+                path: ["personalInfo", "location"],
+                string_contains: loc,
+                mode: "insensitive",
+              },
+            },
+          },
+        })),
+      });
+    }
+
+    const where = {};
+    if (OR.length) where.OR = OR;
+    if (AND.length) where.AND = AND;
+
+    const users = await prisma.userProfile.findMany({
+      where,
+      take,
+      skip: cursor ? 1 : 0,
+      cursor: cursor ? { id: String(cursor) } : undefined,
+      orderBy: { id: "desc" },
+      select: {
+        id: true,
+        username: true,
+        image: true,
+        creatorProfile: {
+          select: {
+            id: true,
+            creatorType: true,
+            data: true,
+          },
+        },
+      },
+    });
+
+    const nextCursor =
+      users.length === take ? users[users.length - 1].id : null;
+
+    res.json({ users, nextCursor });
+  } catch (error) {
+    console.error("Error in searchUsers:", error);
+    res.status(500).json({ message: "Something went wrong" });
+  }
+}

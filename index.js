@@ -16,6 +16,8 @@ import dancerRoutes from "./routes/dancerRoute.js";
 import connectionRoutes from "./routes/connectionRoute.js";
 import connectWithYoutubeRoutes from "./routes/connectWithYoutubeRoute.js";
 import conversationRoutes from "./routes/conversationRoute.js";
+import notificationRoutes from "./routes/notificationRoute.js";
+import feedsRoutes from "./routes/feedsRoute.js";
 import passport from "./config/passport.js";
 import "./cron/updateYoutubeStats.js";
 
@@ -48,19 +50,21 @@ app.use("/api/musician/", musicianRoutes);
 app.use("/api/dancer/", dancerRoutes);
 app.use("/api/connection", connectionRoutes);
 app.use("/api/conversation", conversationRoutes);
+app.use("/api/notification", notificationRoutes);
+app.use("/api/feed", feedsRoutes);
 
 const server = createServer(app);
 
 const io = new Server(server, {
   cors: {
     origin: "http://localhost:3000",
-    methods: ["GET", "POST"],
+    methods: ["GET", "POST", "PATCH", "DELETE", "PUT"],
     credentials: true,
   },
 });
 
 io.on("connection", (socket) => {
-  console.log("🔌 New client connected:", socket.id); 
+  console.log("🔌 New client connected:", socket.id);
 
   socket.on("join", (userId) => {
     socket.join(userId);
@@ -73,6 +77,13 @@ io.on("connection", (socket) => {
 
   socket.on("disconnect", () => {
     console.log("❌ Client disconnected:", socket.id);
+  });
+  io.on("connection", (socket) => {
+    console.log(
+      "🔌 New client connected:",
+      socket.id,
+      socket.handshake.headers.origin
+    );
   });
 });
 

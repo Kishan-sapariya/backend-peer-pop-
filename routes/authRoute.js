@@ -4,6 +4,7 @@ import {
   getCurrentUser,
   login,
   logout,
+  searchUsers,
   signup,
   uploadCoverImage,
   uploadProfilePicture,
@@ -33,5 +34,7 @@ router.post(
   upload.single("image"),
   uploadCoverImage
 );
+
+router.get("/search", protectedRoute, searchUsers);
 
 export default router;
