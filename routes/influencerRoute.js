@@ -13,7 +13,11 @@ import upload from "../config/multer.js";
 const router = express.Router();
 
 router.post("/create-profile", protectedRoute, createInfluencerProfile);
-router.get("/profile/:username", getInfluencerProfileByUsername);
+router.get(
+  "/profile/:username",
+  protectedRoute,
+  getInfluencerProfileByUsername
+);
 router.post(
   "/recent-content",
   upload.fields([

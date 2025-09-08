@@ -171,13 +171,11 @@ export const getMyPosts = async (req, res) => {
       likedByMe: post.likes.length > 0,
     }));
 
-    res
-      .status(200)
-      .json({
-        success: true,
-        posts: formattedPosts,
-        nextCursor: posts.length > 0 ? posts[posts.length - 1].id : null,
-      });
+    res.status(200).json({
+      success: true,
+      posts: formattedPosts,
+      nextCursor: posts.length > 0 ? posts[posts.length - 1].id : null,
+    });
   } catch (error) {
     console.error("Get My Posts Error:", error);
     res
@@ -191,14 +189,41 @@ export const getFeedPosts = async (req, res) => {
   const { cursor, limit = 10 } = req.query;
 
   try {
+    const connections = await prisma.connection.findMany({
+      where: {
+        OR: [
+          { senderId: userId, status: "ACCEPTED" },
+          { receiverId: userId, status: "ACCEPTED" },
+        ],
+      },
+      select: {
+        senderId: true,
+        receiverId: true,
+      },
+    });
+
+    const connectedUserIds = connections.map((c) =>
+      c.senderId === userId ? c.receiverId : c.senderId
+    );
+
     const posts = await prisma.post.findMany({
       take: parseInt(limit),
       skip: cursor ? 1 : 0,
       cursor: cursor ? { id: cursor } : undefined,
       orderBy: { createdAt: "desc" },
+      where: {
+        OR: [
+          { user: { visibility: "PUBLIC" } },
+          { userId },
+          {
+            user: { visibility: "PRIVATE" },
+            userId: { in: connectedUserIds },
+          },
+        ],
+      },
       include: {
         user: {
-          select: { id: true, username: true, image: true },
+          select: { id: true, username: true, image: true, visibility: true },
         },
         _count: {
           select: { comments: true, likes: true },

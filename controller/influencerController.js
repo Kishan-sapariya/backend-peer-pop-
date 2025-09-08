@@ -6,6 +6,7 @@ import cloudinary, {
   uploadOptions,
 } from "../config/cloudinary.js";
 import { v4 as uuidv4 } from "uuid";
+import { canViewProfile } from "../util/isAcceptedConnection.js";
 
 export const createInfluencerProfile = async (req, res) => {
   const { id: userId } = req.user;
@@ -44,6 +45,7 @@ export const createInfluencerProfile = async (req, res) => {
 export const getInfluencerProfileByUsername = async (req, res) => {
   try {
     const { username } = req.params;
+    const { id: requesterId } = req.user;
     if (!username) {
       return res.status(400).json({ message: "Username is required" });
     }
@@ -57,11 +59,24 @@ export const getInfluencerProfileByUsername = async (req, res) => {
         username: true,
         image: true,
         coverImage: true,
+        visibility:true
       },
     });
 
     if (!user) {
       return res.status(404).json({ message: "User not found" });
+    }
+
+    const isAllowed = await canViewProfile(requesterId, user);
+
+    if (!isAllowed) {
+      return res.status(200).json({
+        message: "This Comedian profile is private. Connect to view.",
+        profile: {
+          userProfile: user,
+          restricted: true,
+        },
+      });
     }
 
     // Find the creator profile for this user and type
@@ -84,6 +99,7 @@ export const getInfluencerProfileByUsername = async (req, res) => {
       profile: {
         ...profile,
         userProfile: user,
+        restricted: false,
       },
     });
   } catch (error) {
@@ -287,8 +303,8 @@ export const addCampaigns = async (req, res) => {
 };
 
 export const deleteCampaign = async (req, res) => {
-  const { id: userId } = req.user; 
-  const { campaignId } = req.params; 
+  const { id: userId } = req.user;
+  const { campaignId } = req.params;
 
   try {
     const creator = await prisma.creatorProfile.findUnique({
@@ -332,4 +348,3 @@ export const deleteCampaign = async (req, res) => {
     return res.status(500).json({ message: "Internal server error" });
   }
 };
-

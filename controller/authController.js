@@ -10,28 +10,47 @@ import cloudinary, {
 
 export const signup = async (req, res) => {
   try {
-    const { username, email, password } = req.body;
+    const {
+      username,
+      email,
+      password,
+      role,
+      companyName,
+      industry,
+      companySize,
+    } = req.body;
 
-    if (!username || !email || !password) {
+    if (!username || !email || !password || !role) {
       return res.status(400).json({ message: "All fields are required" });
     }
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      return res.status(400).json({ message: "Invalid email format" });
+    if (!["CREATOR", "BUSINESS"].includes(role)) {
+      return res.status(400).json({ message: "Invalid role" });
     }
 
-    if (password.length < 6) {
-      return res.status(400).json({
-        message: "Password must be at least 6 characters long",
-      });
+    if (role === "BUSINESS") {
+      const personalDomains = [
+        "gmail.com",
+        "yahoo.com",
+        "hotmail.com",
+        "outlook.com",
+        "aol.com",
+        "icloud.com",
+        "protonmail.com",
+        "zoho.com",
+      ];
+      const domain = email.split("@")[1].toLowerCase();
+
+      if (personalDomains.includes(domain)) {
+        return res.status(400).json({
+          message: "Please use a valid company email (not a personal email).",
+        });
+      }
     }
+
     const existingUser = await prisma.userProfile.findUnique({
-      where: {
-        email,
-      },
+      where: { email },
     });
-
     if (existingUser) {
       return res
         .status(400)
@@ -39,7 +58,6 @@ export const signup = async (req, res) => {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-
     const generateOtp = Math.floor(100000 + Math.random() * 900000).toString();
     const otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
 
@@ -48,10 +66,22 @@ export const signup = async (req, res) => {
         username,
         email,
         password: hashedPassword,
+        role,
         otp: generateOtp,
         otpExpiry,
       },
     });
+
+    if (role === "BUSINESS") {
+      await prisma.businessProfile.create({
+        data: {
+          userProfileId: newUser.id,
+          companyName,
+          industry,
+          size: companySize,
+        },
+      });
+    }
 
     try {
       sendOTP(email, generateOtp);
@@ -76,12 +106,16 @@ export const signup = async (req, res) => {
 export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
+
     if (!email || !password) {
       return res.status(400).json({ message: "All fields are required" });
     }
+
     const user = await prisma.userProfile.findUnique({
-      where: {
-        email,
+      where: { email },
+      include: {
+        creatorProfile: true,
+        businessProfile: true,
       },
     });
 
@@ -96,21 +130,26 @@ export const login = async (req, res) => {
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
-    const token = generateToken({ id: user.id, email: user.email });
-
+    const token = generateToken({
+      id: user.id,
+      email: user.email,
+      role: user.role,
+    });
     setCookieToken(res, token);
 
     return res.status(200).json({
       message: "Login successful",
       success: true,
       user: {
+        id: user.id,
         username: user.username,
         email: user.email,
+        role: user.role,
         emailVerified: user.emailVerified,
-        firstName: user.firstName,
-        lastName: user.lastName,
         createdAt: user.createdAt,
-        creatorType: user.creatorProfile?.creatorType,
+        ...(user.role === "CREATOR"
+          ? { creatorProfile: user.creatorProfile }
+          : { businessProfile: user.businessProfile }),
       },
     });
   } catch (error) {
@@ -162,6 +201,7 @@ export const verifyOtp = async (req, res) => {
         lastName: updateUserProfile.lastName,
         createdAt: updateUserProfile.createdAt,
         creatorType: user.creatorProfile?.creatorType,
+        role: updateUserProfile.role,
       },
     });
   } catch (error) {
@@ -188,6 +228,7 @@ export const getCurrentUser = async (req, res) => {
       },
       include: {
         creatorProfile: true,
+        businessProfile: true,
       },
     });
     if (!user) {
@@ -205,6 +246,10 @@ export const getCurrentUser = async (req, res) => {
         image: user.image,
         coverImage: user.coverImage,
         creatorType: user.creatorProfile?.creatorType,
+        visibility: user.visibility,
+        role: user.role,
+        companyName: user.businessProfile?.companyName,
+        isAdmin:user.isAdmin
       },
     });
   } catch (error) {
@@ -345,42 +390,40 @@ export async function searchUsers(req, res) {
     const OR = [];
     const AND = [];
 
+    // 🔎 Search by q
     if (q && q.trim()) {
       OR.push(
-        // username starts with "q"
         { username: { startsWith: q, mode: "insensitive" } },
-
-        // username contains "q" anywhere
         { username: { contains: q, mode: "insensitive" } },
-
-        // firstName starts with "q"
         {
           creatorProfile: {
             is: { data: { path: ["firstName"], string_starts_with: q } },
           },
         },
-        // firstName contains "q"
         {
           creatorProfile: {
             is: { data: { path: ["firstName"], string_contains: q } },
           },
         },
-
-        // lastName starts with "q"
         {
           creatorProfile: {
             is: { data: { path: ["lastName"], string_starts_with: q } },
           },
         },
-        // lastName contains "q"
         {
           creatorProfile: {
             is: { data: { path: ["lastName"], string_contains: q } },
+          },
+        },
+        {
+          businessProfile: {
+            is: { companyName: { contains: q, mode: "insensitive" } },
           },
         }
       );
     }
 
+    // 🔎 Filter by creatorType
     if (creatorType) {
       const types = Array.isArray(creatorType)
         ? creatorType
@@ -395,6 +438,7 @@ export async function searchUsers(req, res) {
       });
     }
 
+    // 🔎 Filter by location
     if (location) {
       const locations = Array.isArray(location)
         ? location
@@ -415,6 +459,7 @@ export async function searchUsers(req, res) {
       });
     }
 
+    // Final WHERE
     const where = {};
     if (OR.length) where.OR = OR;
     if (AND.length) where.AND = AND;
@@ -434,6 +479,15 @@ export async function searchUsers(req, res) {
             id: true,
             creatorType: true,
             data: true,
+          },
+        },
+        businessProfile: {
+          select: {
+            id: true,
+            companyName: true,
+            industry: true,
+            size: true,
+            headquarters: true,
           },
         },
       },

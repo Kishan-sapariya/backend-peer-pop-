@@ -1,3 +1,4 @@
+import { canViewProfile } from "../util/isAcceptedConnection.js";
 import prisma from "../util/prisma.js";
 import { v4 as uuidv4 } from "uuid";
 
@@ -36,21 +37,40 @@ export const createComedianProfile = async (req, res) => {
 export const getComedianProfileByUsername = async (req, res) => {
   try {
     const { username } = req.params;
+    const {id:requesterId}=req.user;
     if (!username) {
       return res.status(400).json({ message: "Username is required" });
     }
 
-    // Find the user by username
     const user = await prisma.userProfile.findUnique({
       where: { username },
-      select: { id: true, email: true, username: true, image: true,coverImage:true },
+      select: {
+        id: true,
+        email: true,
+        username: true,
+        image: true,
+        coverImage: true,
+        visibility:true
+      },
     });
 
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Find the creator profile for this user and type
+    const isAllowed = await canViewProfile(requesterId, user);
+
+    if (!isAllowed) {
+      // ✅ Always send back "profile" key with userProfile + restricted flag
+      return res.status(200).json({
+        message: "This Comedian profile is private. Connect to view.",
+        profile: {
+          userProfile: user,
+          restricted: true,
+        },
+      });
+    }
+
     const profile = await prisma.creatorProfile.findUnique({
       where: {
         userProfileId: user.id,
@@ -69,6 +89,7 @@ export const getComedianProfileByUsername = async (req, res) => {
       profile: {
         ...profile,
         userProfile: user,
+        restricted:false,
       },
     });
   } catch (error) {

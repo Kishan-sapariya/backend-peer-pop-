@@ -36,7 +36,7 @@ export const uploadOptions = {
     ],
   },
   document: {
-    resource_type: "raw",
+    resource_type: "auto",
     folder: "recent-content/documents",
     allowed_formats: [
       "pdf",
@@ -47,6 +47,9 @@ export const uploadOptions = {
       "pptx",
       "xls",
       "xlsx",
+      "png",
+      "jpg",
+      "jpeg",
     ],
   },
 };

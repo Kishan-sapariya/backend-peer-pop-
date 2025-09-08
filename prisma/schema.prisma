@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -43,14 +37,20 @@ enum CreatorType {
   ACTOR
 }
 
+enum BusinessStatus {
+  PENDING   
+  VERIFIED  
+  REJECTED  
+}
+
 enum NotificationType {
   CONNECTION_REQUEST
   CONNECTION_ACCEPTED
-  CONNECTION_REJECTED
-  COLLAB_REQUEST
-  COLLAB_ACCEPTED
-  COLLAB_REJECTED
-  MESSAGE
+  CONNECTION_REJECTED 
+  BUSINESS_VERIFICATION
+  BUSINESS_UNVERIFICATION
+  BUSINESS_REJECTION
+  CUSTOM
 }
 
 enum PostCategory {
@@ -60,180 +60,226 @@ enum PostCategory {
   GENERAL
 }
 
+enum AccountVisibility {
+  PUBLIC
+  PRIVATE
+}
+
 model UserProfile {
-  id              String           @id @default(uuid())
-  username        String           @unique
-  email           String           @unique
-  password        String?          
-  image           String?
-  coverImage      String?
-  googleId        String?          @unique
-  provider        String?
-  firstName       String?
-  lastName        String?
-  role            UserRole         @default(CREATOR)
+  id                  String                @id @default(uuid())
+  username            String                @unique
+  email               String                @unique
+  password            String?
+  image               String?
+  coverImage          String?
+  googleId            String?               @unique
+  provider            String?
+  firstName           String?
+  lastName            String?
+  role                UserRole              @default(CREATOR)
+  isAdmin             Boolean               @default(false)
 
-  creatorProfile  CreatorProfile?
-  businessProfile BusinessProfile?
-  youtubeStats    YouTubeStats?
-  youTubeAuth     YouTubeAuth?
-  requestsSent     Connection[]    @relation("RequestSent")
-  requestsReceived Connection[]    @relation("RequestReceived")
+  creatorProfile      CreatorProfile?
+  businessProfile     BusinessProfile?
+  youtubeStats        YouTubeStats?
+  youTubeAuth         YouTubeAuth?
+  requestsSent        Connection[]          @relation("RequestSent")
+  requestsReceived    Connection[]          @relation("RequestReceived")
   conversationParticipants ConversationParticipant[]
-  sentMessages     Message[] @relation("UserMessages")
-  sentNotifications     Notification[] @relation("SentNotifications")
-  receivedNotifications Notification[] @relation("ReceivedNotifications")
-  post            Post[]
-  comments        Comment[] 
-  likes           Like[]
+  sentMessages        Message[]             @relation("UserMessages")
+  sentNotifications   Notification[]        @relation("SentNotifications")
+  receivedNotifications Notification[]      @relation("ReceivedNotifications")
+  post                Post[]
+  comments            Comment[]
+  likes               Like[]
 
-  emailVerified   Boolean          @default(false)
+  emailVerified       Boolean               @default(false)
+  visibility          AccountVisibility     @default(PUBLIC)
 
-  otp             String?
-  otpExpiry       DateTime?
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
+  otp                 String?
+  otpExpiry           DateTime?
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+  @@index([visibility])
 }
 
 model Connection {
-  id            String      @id @default(uuid())
-  senderId   String      
-  receiverId    String      
-  status        ConnectionStatus @default(PENDING)
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
+  id           String           @id @default(uuid())
+  senderId     String
+  receiverId   String
+  status       ConnectionStatus @default(PENDING)
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
 
-  sender   UserProfile @relation("RequestSent", fields: [senderId], references: [id])
-  receiver UserProfile @relation("RequestReceived", fields: [receiverId], references: [id])
+  sender       UserProfile      @relation("RequestSent", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver     UserProfile      @relation("RequestReceived", fields: [receiverId], references: [id], onDelete: Cascade)
 
-  @@unique([senderId, receiverId]) 
+  @@unique([senderId, receiverId])
 }
 
 model CreatorProfile {
-  id             String          @id @default(uuid())
-  userProfileId  String          @unique
+  id             String         @id @default(uuid())
+  userProfileId  String         @unique
   creatorType    CreatorType
   data           Json
-  recentContent  RecentContent[] 
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
+  recentContent  RecentContent[]
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
 
-  userProfile    UserProfile     @relation(fields: [userProfileId], references: [id], onDelete: Cascade)
+  userProfile    UserProfile    @relation(fields: [userProfileId], references: [id], onDelete: Cascade)
 }
 
 model BusinessProfile {
-  id             String          @id @default(uuid())
-  userProfileId  String          @unique
-  companyName    String
-  website        String?
-  contactEmail   String
-  phone          String?
-  about          String?
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
+  id                  String   @id @default(uuid())
+  userProfileId       String   @unique
+  companyName         String?
+  website             String?
+  phone               String?
+  about               String?
 
-  userProfile    UserProfile     @relation(fields: [userProfileId], references: [id], onDelete: Cascade)
+  // Basic Info
+  industry            String?
+  size                String?
+  foundedYear         String?
+  supportEmail        String?
+  businessType        String?
+
+  // Verification
+  isVerified          Boolean   @default(false)
+  status              BusinessStatus @default(PENDING)
+  rejectionReason     String?
+  lastReviewedAt      DateTime?
+
+  // GST
+  gstNumber           String?
+  gstCertificateUrl   String?
+
+  // PAN
+  panNumber           String?
+  panDocumentUrl      String?
+
+  // Location
+  headquarters        String?
+
+  services        Json?    
+  achievements    Json?
+
+  // Social
+  linkedinUrl         String?
+  linkedinFollowers   Int?
+  twitterUrl          String?
+  twitterFollowers    Int?
+  instagramUrl        String?
+  instagramFollowers  Int?
+  facebookUrl         String?
+  facebookFollowers   Int?
+
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  userProfile         UserProfile @relation(fields: [userProfileId], references: [id], onDelete: Cascade)
 }
 
+
 model YouTubeAuth {
-  id             String   @id @default(uuid())
-  userProfileId  String   @unique
-  refreshToken   String
-  accessToken    String?
-  expiryDate     DateTime?
-  scope          String?
-  tokenType      String?
-  googleId       String
+  id            String    @id @default(uuid())
+  userProfileId String    @unique
+  refreshToken  String
+  accessToken   String?
+  expiryDate    DateTime?
+  scope         String?
+  tokenType     String?
+  googleId      String
 
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
-  userProfile    UserProfile @relation(fields: [userProfileId], references: [id], onDelete: Cascade)
+  userProfile   UserProfile @relation(fields: [userProfileId], references: [id], onDelete: Cascade)
 }
 
 model YouTubeStats {
-  id             String   @id @default(uuid())
-  userProfileId  String   @unique
-  stats          Json
-  updatedAt      DateTime @updatedAt
+  id            String   @id @default(uuid())
+  userProfileId String   @unique
+  stats         Json
+  updatedAt     DateTime @updatedAt
 
-  userProfile    UserProfile @relation(fields: [userProfileId], references: [id], onDelete: Cascade)
+  userProfile   UserProfile @relation(fields: [userProfileId], references: [id], onDelete: Cascade)
 }
 
 model RecentContent {
-  id               String          @id @default(uuid())
+  id               String       @id @default(uuid())
   creatorProfileId String
-  contentType      ContentType     
+  contentType      ContentType
   title            String
   description      String?
-  url              String?       
-  mediaUrls        String[]       
-  metrics          Json?          
-  metadata         Json?          
-  isActive         Boolean         @default(true)
-  createdAt        DateTime        @default(now())
-  updatedAt        DateTime        @updatedAt
+  url              String?
+  mediaUrls        String[]
+  metrics          Json?
+  metadata         Json?
+  isActive         Boolean      @default(true)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
 
-  creatorProfile   CreatorProfile  @relation(fields: [creatorProfileId], references: [id], onDelete: Cascade)
+  creatorProfile   CreatorProfile @relation(fields: [creatorProfileId], references: [id], onDelete: Cascade)
 
   @@index([creatorProfileId, contentType])
 }
 
 model Conversation {
-  id           String                     @id @default(uuid())
-  createdAt    DateTime                   @default(now())
-  updatedAt    DateTime                   @updatedAt
+  id           String                  @id @default(uuid())
+  createdAt    DateTime                @default(now())
+  updatedAt    DateTime                @updatedAt
 
   participants ConversationParticipant[]
   messages     Message[]
 }
 
 model ConversationParticipant {
-  id             String        @id @default(uuid())
+  id             String       @id @default(uuid())
   conversationId String
   userId         String
+   lastReadAt     DateTime?
 
   conversation Conversation @relation(fields: [conversationId], references: [id])
-  user         UserProfile   @relation(fields: [userId], references: [id])
+  user         UserProfile  @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([conversationId, userId])
 }
 
 model Message {
-  id             String      @id @default(uuid())
+  id             String       @id @default(uuid())
   conversationId String
   senderId       String
   content        String?
   attachmentUrl  String?
   attachmentType String?
-  createdAt      DateTime    @default(now())
+  createdAt      DateTime     @default(now())
 
   conversation Conversation @relation(fields: [conversationId], references: [id])
-  sender       UserProfile  @relation("UserMessages", fields: [senderId], references: [id])
+  sender       UserProfile  @relation("UserMessages", fields: [senderId], references: [id], onDelete: Cascade)
 }
 
 model Notification {
-  id          String   @id @default(cuid())
+  id          String         @id @default(cuid())
   type        NotificationType
-  senderId    String   
-  receiverId  String   
-  message     String   
-  isRead      Boolean  @default(false)
-  createdAt   DateTime @default(now())
+  senderId    String?
+  receiverId  String
+  message     String
+  isRead      Boolean        @default(false)
+  createdAt   DateTime       @default(now())
 
-  sender   UserProfile @relation("SentNotifications", fields: [senderId], references: [id])
-  receiver UserProfile @relation("ReceivedNotifications", fields: [receiverId], references: [id])
+  sender      UserProfile?    @relation("SentNotifications", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver    UserProfile    @relation("ReceivedNotifications", fields: [receiverId], references: [id], onDelete: Cascade)
 }
-
 
 model Post {
   id          String       @id @default(uuid())
   userId      String
   category    PostCategory
-  customLabel String?      // for CUSTOM posts
+  customLabel String?
   description String?
-  hashtags    String[]     // array of hashtags (#collab, #design, etc.)
-  mediaUrls   String[]     // supports multiple images/videos
+  hashtags    String[]
+  mediaUrls   String[]
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 
@@ -243,26 +289,24 @@ model Post {
 }
 
 model Like {
-  id        String     @id @default(uuid())
+  id        String      @id @default(uuid())
   postId    String
   userId    String
-  createdAt DateTime   @default(now())
+  createdAt DateTime    @default(now())
 
-  post      Post       @relation(fields: [postId], references: [id], onDelete: Cascade)
+  post      Post        @relation(fields: [postId], references: [id], onDelete: Cascade)
   user      UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([postId, userId]) // prevent multiple likes by same user
+  @@unique([postId, userId])
 }
 
 model Comment {
-  id        String     @id @default(uuid())
+  id        String      @id @default(uuid())
   postId    String
   userId    String
   content   String
-  createdAt DateTime   @default(now())
+  createdAt DateTime    @default(now())
 
-  post      Post       @relation(fields: [postId], references: [id], onDelete: Cascade)
+  post      Post        @relation(fields: [postId], references: [id], onDelete: Cascade)
   user      UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
-
-

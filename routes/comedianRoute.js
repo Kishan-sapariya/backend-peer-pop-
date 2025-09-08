@@ -14,7 +14,7 @@ import {
 const router = express.Router();
 
 router.post("/create-profile", protectedRoute, createComedianProfile);
-router.get("/profile/:username", getComedianProfileByUsername);
+router.get("/profile/:username", protectedRoute,getComedianProfileByUsername);
 router.post("/add-upcoming-show", protectedRoute, addUpcomingShows);
 router.delete("/delete-show/:upcomingShowId", protectedRoute, deleteShow);
 router.post("/add-recent-sets", protectedRoute, addRecentSets);

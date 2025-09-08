@@ -1,3 +1,4 @@
+import { io } from "../index.js";
 import prisma from "../util/prisma.js";
 import { createNotification } from "./notificationController.js";
 
@@ -49,6 +50,10 @@ export const sendConnectionReq = async (req, res) => {
           receiverId,
           status: "PENDING",
         },
+        include: {
+          sender: { select: { id: true, username: true, image: true } },
+          receiver: { select: { id: true, username: true, image: true } },
+        },
       });
 
       // 2. Create notification
@@ -57,6 +62,12 @@ export const sendConnectionReq = async (req, res) => {
         senderId,
         receiverId,
         message: `${sender.username} sent you a connection request`,
+      });
+
+      // 3. Emit socket event using newRequest
+      io.to(receiverId).emit("connection:pendingUpdated", {
+        type: "NEW_REQUEST",
+        request: newRequest,
       });
 
       return newRequest;
@@ -140,6 +151,7 @@ export const acceptRequest = async (req, res) => {
         message: `Cannot accept the request with status ${connection.status}`,
       });
     }
+
     const receiver = await prisma.userProfile.findUnique({
       where: { id: userId },
       select: { username: true },
@@ -156,6 +168,11 @@ export const acceptRequest = async (req, res) => {
         senderId: userId,
         receiverId: connection.senderId,
         message: `${receiver.username} accepted your connection request`,
+      });
+
+      io.to(connection.senderId).emit("connection:pendingUpdated", {
+        type: "REQUEST_ACCEPTED",
+        connectionId,
       });
 
       return updatedRequest;
@@ -224,6 +241,11 @@ export const rejectRequest = async (req, res) => {
         message: `${receiver.username} rejected your connection request`,
       });
 
+      io.to(connection.senderId).emit("connection:pendingUpdated", {
+        type: "REQUEST_REJECTED",
+        connectionId,
+      });
+
       return updatedRequest;
     });
 
@@ -239,24 +261,39 @@ export const rejectRequest = async (req, res) => {
 export const deleteConnection = async (req, res) => {
   const { id: userId } = req.user;
   const { connectionId } = req.params;
+
   try {
     const connection = await prisma.connection.findUnique({
       where: { id: connectionId },
     });
+
     if (!connection) {
       return res.status(404).json({ message: "No connection request found" });
     }
+
     if (connection.senderId !== userId && connection.receiverId !== userId) {
       return res
         .status(403)
         .json({ message: "You are not allowed to remove this connection" });
     }
+
     const deletedConnection = await prisma.connection.delete({
       where: { id: connectionId },
     });
+
+    // 🔥 Emit socket event so both users can update state
+    io.to(connection.senderId).emit("connection:pendingUpdated", {
+      type: "CONNECTION_DELETED",
+      connectionId,
+    });
+    io.to(connection.receiverId).emit("connection:pendingUpdated", {
+      type: "CONNECTION_DELETED",
+      connectionId,
+    });
+
     return res
       .status(200)
-      .json({ message: "Request rejected", deletedConnection });
+      .json({ message: "Connection deleted", deletedConnection });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "Internal server error" });
