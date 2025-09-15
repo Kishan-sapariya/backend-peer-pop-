@@ -12,12 +12,16 @@ export const generateToken = (user) => {
 };
 
 export const setCookieToken = (res, token) => {
+  if (!token) return;
+
   const isProduction = process.env.NODE_ENV === "production";
-  return res.cookie("token", token, {
+
+  res.cookie("token", token, {
     httpOnly: true,
-    secure: isProduction,
-    sameSite: isProduction ? "None" : "Lax",
-    maxAge: 168 * 60 * 60 * 1000,
+    secure: isProduction, 
+    sameSite: isProduction ? "None" : "Lax", 
+    path: "/", 
+    maxAge: 7 * 24 * 60 * 60 * 1000, 
   });
 };
 
