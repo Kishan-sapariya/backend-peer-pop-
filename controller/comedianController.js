@@ -1,6 +1,7 @@
 import { canViewProfile } from "../util/isAcceptedConnection.js";
 import prisma from "../util/prisma.js";
 import { v4 as uuidv4 } from "uuid";
+import { calculateProfileCompletion } from "../util/profileConfig.js";
 
 export const createComedianProfile = async (req, res) => {
   const { id: userId } = req.user;
@@ -37,7 +38,8 @@ export const createComedianProfile = async (req, res) => {
 export const getComedianProfileByUsername = async (req, res) => {
   try {
     const { username } = req.params;
-    const {id:requesterId}=req.user;
+    const { id: requesterId } = req.user;
+
     if (!username) {
       return res.status(400).json({ message: "Username is required" });
     }
@@ -50,7 +52,7 @@ export const getComedianProfileByUsername = async (req, res) => {
         username: true,
         image: true,
         coverImage: true,
-        visibility:true
+        visibility: true,
       },
     });
 
@@ -61,7 +63,6 @@ export const getComedianProfileByUsername = async (req, res) => {
     const isAllowed = await canViewProfile(requesterId, user);
 
     if (!isAllowed) {
-      // ✅ Always send back "profile" key with userProfile + restricted flag
       return res.status(200).json({
         message: "This Comedian profile is private. Connect to view.",
         profile: {
@@ -71,9 +72,10 @@ export const getComedianProfileByUsername = async (req, res) => {
       });
     }
 
-    const profile = await prisma.creatorProfile.findUnique({
+    const profile = await prisma.creatorProfile.findFirst({
       where: {
         userProfileId: user.id,
+        creatorType: "COMEDIAN",
       },
     });
 
@@ -84,12 +86,18 @@ export const getComedianProfileByUsername = async (req, res) => {
       });
     }
 
+    const completion = calculateProfileCompletion(
+      profile.creatorType,
+      profile.data
+    );
+
     res.status(200).json({
       message: "Profile retrieved successfully",
       profile: {
         ...profile,
         userProfile: user,
-        restricted:false,
+        restricted: false,
+        completion,
       },
     });
   } catch (error) {
@@ -379,5 +387,50 @@ export const deleteAchievement = async (req, res) => {
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const updateComedianProfile = async (req, res) => {
+  const userId = req.user.id;
+  const { data } = req.body;
+
+  try {
+    const existingProfile = await prisma.creatorProfile.findFirst({
+      where: {
+        userProfileId: userId,
+        creatorType: "COMEDIAN",
+      },
+    });
+
+    if (!existingProfile) {
+      return res.status(404).json({
+        message: "Comedian profile not found. Please create one first.",
+      });
+    }
+
+    // merge old data + new data (shallow merge)
+    const updatedData = {
+      ...existingProfile.data,
+      ...data,
+    };
+
+    const updatedProfile = await prisma.creatorProfile.update({
+      where: { id: existingProfile.id },
+      data: {
+        data: updatedData,
+        updatedAt: new Date(),
+      },
+    });
+
+    return res.status(200).json({
+      message: "Comedian profile updated successfully",
+      profile: updatedProfile,
+    });
+  } catch (error) {
+    console.error("Error updating Comedian profile:", error);
+    return res.status(500).json({
+      message: "Internal server error",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
   }
 };

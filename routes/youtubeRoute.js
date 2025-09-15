@@ -10,6 +10,7 @@ import {
   getRecentContentForProfile,
   getYoutubeProfileByUsername,
   getYoutubeStats,
+  updateYoutubeProfile,
 } from "../controller/youtubeController.js";
 import { protectedRoute } from "../middleware/protectedRoute.js";
 import upload from "../config/multer.js";
@@ -47,5 +48,6 @@ router.delete(
   protectedRoute,
   deleteAchievement
 );
+router.patch("/update-profile", protectedRoute, updateYoutubeProfile);
 
 export default router;

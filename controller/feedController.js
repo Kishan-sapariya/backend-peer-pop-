@@ -14,7 +14,6 @@ export const getUserDetailsForFeed = async (req, res) => {
         id: true,
         username: true,
         image: true,
-        email: true,
         creatorProfile: {
           select: {
             creatorType: true,
@@ -34,19 +33,17 @@ export const getUserDetailsForFeed = async (req, res) => {
       },
     });
 
-    if (!user) return res.status(404).json({ message: "User not found" });
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
 
     const peersCount =
       user.requestsSent.filter((r) => r.status === "ACCEPTED").length +
       user.requestsReceived.filter((r) => r.status === "ACCEPTED").length;
 
-    const collabsCount = await prisma.conversation.count({
+    const postCount = await prisma.post.count({
       where: {
-        participants: {
-          some: {
-            userId,
-          },
-        },
+        userId: userId,
       },
     });
 
@@ -57,7 +54,7 @@ export const getUserDetailsForFeed = async (req, res) => {
       creatorType: user.creatorProfile?.creatorType,
       location: user.creatorProfile?.data?.personalInfo?.location || null,
       peersCount,
-      collabsCount,
+      postCount,
     };
 
     return res.status(200).json({
@@ -147,7 +144,17 @@ export const getMyPosts = async (req, res) => {
       where: { userId: profileId },
       include: {
         user: {
-          select: { id: true, username: true, image: true },
+          select: {
+            id: true,
+            username: true,
+            image: true,
+            visibility: true,
+            creatorProfile: {
+              select: {
+                creatorType: true,
+              },
+            },
+          },
         },
         _count: {
           select: { comments: true, likes: true },
@@ -169,6 +176,11 @@ export const getMyPosts = async (req, res) => {
       ...post,
       likesCount: post._count.likes,
       likedByMe: post.likes.length > 0,
+      user: {
+        ...post.user,
+        creatorType: post.user.creatorProfile?.creatorType,
+        creatorProfile: undefined,
+      },
     }));
 
     res.status(200).json({
@@ -223,7 +235,17 @@ export const getFeedPosts = async (req, res) => {
       },
       include: {
         user: {
-          select: { id: true, username: true, image: true, visibility: true },
+          select: {
+            id: true,
+            username: true,
+            image: true,
+            visibility: true,
+            creatorProfile: {
+              select: {
+                creatorType: true,
+              },
+            },
+          },
         },
         _count: {
           select: { comments: true, likes: true },
@@ -244,6 +266,11 @@ export const getFeedPosts = async (req, res) => {
       ...post,
       likesCount: post._count.likes,
       likedByMe: post.likes.length > 0,
+      user: {
+        ...post.user,
+        creatorType: post.user.creatorProfile?.creatorType,
+        creatorProfile: undefined,
+      },
     }));
 
     res.status(200).json({
@@ -329,7 +356,19 @@ export const getPostForMyPeers = async (req, res) => {
       cursor: cursor ? { id: cursor } : undefined,
       orderBy: { createdAt: "desc" },
       include: {
-        user: { select: { id: true, username: true, image: true } },
+        user: {
+          select: {
+            id: true,
+            username: true,
+            image: true,
+            visibility: true,
+            creatorProfile: {
+              select: {
+                creatorType: true,
+              },
+            },
+          },
+        },
         likes: { where: { userId }, select: { id: true } },
         _count: { select: { likes: true, comments: true } },
         comments: {

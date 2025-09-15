@@ -5,6 +5,8 @@ import cloudinary, {
 import { canViewProfile } from "../util/isAcceptedConnection.js";
 import prisma from "../util/prisma.js";
 import { v4 as uuidv4 } from "uuid";
+import { calculateProfileCompletion } from "../util/profileConfig.js";
+import { deepMerge } from "../util/deepMerge.js";
 
 export const createYoutubeProfile = async (req, res) => {
   const userId = req.user.id;
@@ -69,7 +71,6 @@ export const getYoutubeProfileByUsername = async (req, res) => {
     const isAllowed = await canViewProfile(requesterId, user);
 
     if (!isAllowed) {
-      // ✅ Always send back "profile" key with userProfile + restricted flag
       return res.status(200).json({
         message: "This YouTube profile is private. Connect to view.",
         profile: {
@@ -93,12 +94,19 @@ export const getYoutubeProfileByUsername = async (req, res) => {
       });
     }
 
+    // ✅ Add profile completion
+    const completion = calculateProfileCompletion(
+      profile.creatorType,
+      profile.data
+    );
+
     res.status(200).json({
       message: "Profile retrieved successfully",
       profile: {
         ...profile,
         userProfile: user,
         restricted: false,
+        completion, // { percentage, category }
       },
     });
   } catch (error) {
@@ -137,46 +145,6 @@ export const getYoutubeStats = async (req, res) => {
   }
 };
 
-export const updateYoutubeProfile = async (req, res) => {
-  const userId = req.user.id;
-  const { data } = req.body;
-
-  try {
-    const profile = await prisma.creatorProfile.updateMany({
-      where: {
-        userProfileId: userId,
-        creatorType: "YOUTUBER",
-      },
-      data: {
-        data: data,
-      },
-    });
-
-    if (profile.count === 0) {
-      return res.status(404).json({
-        message: "YouTube profile not found",
-      });
-    }
-
-    const updatedProfile = await prisma.creatorProfile.findFirst({
-      where: {
-        userProfileId: userId,
-        creatorType: "YOUTUBER",
-      },
-    });
-
-    res.status(200).json({
-      message: "Profile updated successfully",
-      profile: updatedProfile,
-    });
-  } catch (error) {
-    console.error("Error updating YouTube profile:", error);
-    res.status(500).json({
-      message: "Internal server error",
-      error: process.env.NODE_ENV === "development" ? error.message : undefined,
-    });
-  }
-};
 export const addRecentContent = async (req, res) => {
   try {
     const { contentType, title, description } = req.body;
@@ -491,3 +459,44 @@ export const deleteAchievement = async (req, res) => {
     return res.status(500).json({ message: "Internal server error" });
   }
 };
+
+export const updateYoutubeProfile = async (req, res) => {
+  const userId = req.user.id;
+  const { data } = req.body;
+
+  try {
+    const existingProfile = await prisma.creatorProfile.findFirst({
+      where: { userProfileId: userId, creatorType: "YOUTUBER" },
+    });
+
+    if (!existingProfile) {
+      return res.status(404).json({
+        message: "YouTube profile not found for this user",
+      });
+    }
+
+    const updatedData = deepMerge({ ...existingProfile.data }, data);
+
+    const updatedProfile = await prisma.creatorProfile.update({
+      where: { id: existingProfile.id },
+      data: {
+        data: updatedData,
+        updatedAt: new Date(),
+      },
+    });
+
+    res.status(200).json({
+      message: "YouTube profile updated successfully",
+      profile: updatedProfile,
+    });
+  } catch (error) {
+    console.error("Error updating YouTube profile:", error);
+    res.status(500).json({
+      message: "Internal server error",
+      error:
+        process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+

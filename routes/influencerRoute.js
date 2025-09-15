@@ -7,6 +7,7 @@ import {
   deleteCampaign,
   deleteRecentContent,
   getInfluencerProfileByUsername,
+  updateInfluencerProfile,
 } from "../controller/influencerController.js";
 import upload from "../config/multer.js";
 
@@ -32,5 +33,7 @@ router.post(
 router.post("/delete-recent-content/:id", protectedRoute, deleteRecentContent);
 router.post("/add-campaign", protectedRoute, addCampaigns);
 router.delete("/delete-campaign/:campaignId", protectedRoute, deleteCampaign);
+router.patch("/update-profile", protectedRoute, updateInfluencerProfile);
+
 
 export default router;

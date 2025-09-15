@@ -9,6 +9,7 @@ import {
   deleteRecentSets,
   deleteShow,
   getComedianProfileByUsername,
+  updateComedianProfile,
 } from "../controller/comedianController.js";
 
 const router = express.Router();
@@ -25,5 +26,6 @@ router.delete(
   protectedRoute,
   deleteAchievement
 );
+router.patch("/update-profile", protectedRoute, updateComedianProfile);
 
 export default router;
