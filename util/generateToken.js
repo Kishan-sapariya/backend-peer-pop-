@@ -18,12 +18,14 @@ export const setCookieToken = (res, token) => {
 
   res.cookie("token", token, {
     httpOnly: true,
-    secure: isProduction, 
-    sameSite: isProduction ? "None" : "Lax", 
-    path: "/", 
-    maxAge: 7 * 24 * 60 * 60 * 1000, 
+    secure: isProduction,
+    sameSite: isProduction ? "None" : "Lax",
+    path: "/",
+    domain: isProduction ? ".peerpop.in" : undefined,  
+    maxAge: 7 * 24 * 60 * 60 * 1000,
   });
 };
+
 
 export const verifyToken = (token) => {
   try {
