@@ -212,7 +212,15 @@ export const verifyOtp = async (req, res) => {
 
 export const logout = async (req, res) => {
   try {
-    res.clearCookie("token");
+    const isProduction = process.env.NODE_ENV === "production";
+
+    res.clearCookie("token", {
+      httpOnly: false,
+      secure: isProduction,
+      sameSite: isProduction ? "None" : "Lax",
+      path: "/",
+      domain: isProduction ? ".peerpop.in" : undefined,
+    });
     return res.status(200).json({ message: "Logout successful" });
   } catch (error) {
     res.status(500).json({ message: "Internal Server Error" });
@@ -249,7 +257,7 @@ export const getCurrentUser = async (req, res) => {
         visibility: user.visibility,
         role: user.role,
         companyName: user.businessProfile?.companyName,
-        isAdmin:user.isAdmin
+        isAdmin: user.isAdmin,
       },
     });
   } catch (error) {
