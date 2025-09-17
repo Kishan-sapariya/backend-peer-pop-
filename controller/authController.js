@@ -103,6 +103,57 @@ export const signup = async (req, res) => {
   }
 };
 
+export const verifyOtp = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+    const user = await prisma.userProfile.findUnique({
+      where: {
+        email,
+      },
+    });
+    if (!user) {
+      return res
+        .status(404)
+        .json({ message: "User not found with this email" });
+    }
+    if (user.otp !== otp || user.otpExpiry < new Date()) {
+      return res.status(401).json({ message: "Invalid OTP or OTP expired" });
+    }
+
+    const updateUserProfile = await prisma.userProfile.update({
+      where: { email },
+      data: {
+        emailVerified: true,
+        otp: null,
+        otpExpiry: null,
+      },
+    });
+    const token = generateToken({
+      id: updateUserProfile.id,
+      email: updateUserProfile.email,
+    });
+
+    setCookieToken(res, token);
+
+    return res.status(200).json({
+      message: "Otp verified successfully",
+      success: true,
+      user: {
+        username: updateUserProfile.username,
+        email: updateUserProfile.email,
+        emailVerified: updateUserProfile.emailVerified,
+        firstName: updateUserProfile.firstName,
+        lastName: updateUserProfile.lastName,
+        createdAt: updateUserProfile.createdAt,
+        creatorType: user.creatorProfile?.creatorType,
+        role: updateUserProfile.role,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Internal Server Error", success: false });
+    console.log(error);
+  }
+};
 
 export const login = async (req, res) => {
   try {
