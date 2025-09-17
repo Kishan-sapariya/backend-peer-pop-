@@ -22,18 +22,6 @@ const transporter = nodemailer.createTransport({
   logger: process.env.NODE_ENV === 'production'
 });
 
-const testConnection = async () => {
-  try {
-    await transporter.verify();
-    console.log('✅ SMTP server connection verified successfully');
-  } catch (error) {
-    console.error('❌ SMTP connection failed:', error.message);
-    console.error('Check your EMAIL_USER and EMAIL_PASS environment variables');
-  }
-};
-
-testConnection();
-
 export const sendOTP = async (email, otp) => {
   try {
     
@@ -62,7 +50,6 @@ export const sendOTP = async (email, otp) => {
           </div>
         </div>
       `,
-      // Add text version for better deliverability
       text: `Your Peer Pop verification code is: ${otp}\n\nThis code expires in 10 minutes.\n\nIf you didn't request this verification, please ignore this email.`
     };
 

@@ -17,14 +17,15 @@ export const setCookieToken = (res, token) => {
   const isProduction = process.env.NODE_ENV === "production";
 
   res.cookie("token", token, {
-    httpOnly: false,
-    secure: isProduction,
-    sameSite: isProduction ? "None" : "Lax",
+    httpOnly: true, 
+    secure: isProduction, 
+    sameSite: isProduction ? "None" : "Lax", 
     path: "/",
-    domain: isProduction ? ".peerpop.in" : undefined,  
+    domain: isProduction ? ".peerpop.in" : undefined, 
     maxAge: 7 * 24 * 60 * 60 * 1000,
   });
 };
+
 
 
 export const verifyToken = (token) => {
