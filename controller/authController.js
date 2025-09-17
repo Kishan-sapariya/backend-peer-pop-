@@ -107,7 +107,10 @@ export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
+    console.log("📥 Login attempt:", { email });
+
     if (!email || !password) {
+      console.warn("⚠️ Missing email or password in login request");
       return res.status(400).json({ message: "All fields are required" });
     }
 
@@ -120,6 +123,7 @@ export const login = async (req, res) => {
     });
 
     if (!user) {
+      console.warn("❌ No user found with email:", email);
       return res
         .status(404)
         .json({ message: "User not found with this email" });
@@ -127,8 +131,14 @@ export const login = async (req, res) => {
 
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
+      console.warn("❌ Invalid password for user:", email);
       return res.status(401).json({ message: "Invalid credentials" });
     }
+
+    console.log("✅ Password verified for user:", {
+      id: user.id,
+      role: user.role,
+    });
 
     const token = generateToken({
       id: user.id,
@@ -136,11 +146,30 @@ export const login = async (req, res) => {
       role: user.role,
     });
 
-    setCookieToken(res, token);
+    console.log("🔑 Token generated for user:", {
+      userId: user.id,
+      tokenPreview: token.substring(0, 15) + "...",
+      tokenLength: token.length,
+    });
 
-    return res.redirect(302, "https://www.peerpop.in/feed");
+    setCookieToken(res, token);
+    console.log("🍪 Cookie set successfully");
+
+    return res.status(200).json({
+      success: true,
+      message: "Login successful",
+      redirect: "/feed",
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        role: user.role,
+        emailVerified: user.emailVerified,
+        createdAt: user.createdAt,
+      },
+    });
   } catch (error) {
-    console.error(error);
+    console.error("🔥 Login error:", error);
     res.status(500).json({ message: "Internal Server Error", success: false });
   }
 };
