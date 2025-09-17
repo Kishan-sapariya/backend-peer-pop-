@@ -33,8 +33,8 @@ app.use(
     origin: [
       "http://localhost:3000",
       "https://frontend-peer-pop-3f5g.vercel.app",
-      "https://www.peerpop.in",  
-      "https://peerpop.in"       
+      "https://www.peerpop.in",
+      "https://peerpop.in",
     ],
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
@@ -72,19 +72,24 @@ const io = new Server(server, {
       "http://localhost:3000",
       "https://frontend-peer-pop-3f5g.vercel.app",
       "https://www.peerpop.in",
-      "https://peerpop.in"       
+      "https://peerpop.in",
     ],
     methods: ["GET", "POST", "PATCH", "DELETE", "PUT"],
+    allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
   },
 });
 
 io.on("connection", (socket) => {
-  console.log("🔌 New client connected:", socket.id);
+  console.log(
+    "🔌 Client connected:",
+    socket.id,
+    socket.handshake.headers.origin
+  );
 
   socket.on("join", (userId) => {
     socket.join(userId);
-    console.log(`User ${userId} joined their room`);
+    console.log(`✅ User ${userId} joined their room`);
   });
 
   socket.on("sendMessage", ({ receiverId, message }) => {
@@ -93,13 +98,6 @@ io.on("connection", (socket) => {
 
   socket.on("disconnect", () => {
     console.log("❌ Client disconnected:", socket.id);
-  });
-  io.on("connection", (socket) => {
-    console.log(
-      "🔌 New client connected:",
-      socket.id,
-      socket.handshake.headers.origin
-    );
   });
 });
 
