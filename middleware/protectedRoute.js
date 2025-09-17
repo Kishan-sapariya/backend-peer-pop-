@@ -9,7 +9,11 @@ export const protectedRoute = async (req, res, next) => {
       return res.status(401).json({ message: "Unauthorized" });
     }
 
-    const decoded = verifyToken(token); 
+    const decoded = verifyToken(token);
+    
+    if (!decoded) {
+      return res.status(401).json({ message: "Invalid or expired token" });
+    }
 
     const user = await prisma.userProfile.findUnique({
       where: { id: decoded.id },
