@@ -107,11 +107,8 @@ export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    console.log("📥 Login attempt:", { email });
-
     if (!email || !password) {
-      console.warn("⚠️ Missing email or password in login request");
-      return res.status(400).json({ message: "All fields are required" });
+      return res.status(400).json({ message: "All fields are required", success: false });
     }
 
     const user = await prisma.userProfile.findUnique({
@@ -123,22 +120,17 @@ export const login = async (req, res) => {
     });
 
     if (!user) {
-      console.warn("❌ No user found with email:", email);
-      return res
-        .status(404)
-        .json({ message: "User not found with this email" });
+      return res.status(401).json({ message: "Invalid credentials", success: false });
     }
 
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
-      console.warn("❌ Invalid password for user:", email);
-      return res.status(401).json({ message: "Invalid credentials" });
+      return res.status(401).json({ message: "Invalid credentials", success: false });
     }
 
-    console.log("✅ Password verified for user:", {
-      id: user.id,
-      role: user.role,
-    });
+    if (!user.emailVerified) {
+      return res.status(403).json({ message: "Please verify your email before logging in", success: false });
+    }
 
     const token = generateToken({
       id: user.id,
@@ -146,14 +138,16 @@ export const login = async (req, res) => {
       role: user.role,
     });
 
-    console.log("🔑 Token generated for user:", {
-      userId: user.id,
-      tokenPreview: token.substring(0, 15) + "...",
-      tokenLength: token.length,
+    // Set cookie
+    setCookieToken("token", token, {
+      req,
+      res,
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "none",
+      maxAge: 7 * 24 * 60 * 60, 
+      path: "/",
     });
-
-    setCookieToken(res, token);
-    console.log("🍪 Cookie set successfully");
 
     return res.status(200).json({
       success: true,
@@ -166,13 +160,16 @@ export const login = async (req, res) => {
         role: user.role,
         emailVerified: user.emailVerified,
         createdAt: user.createdAt,
+        image: user.image || null,
+        creatorType: user.creatorProfile?.creatorType || null,
       },
     });
   } catch (error) {
     console.error("🔥 Login error:", error);
-    res.status(500).json({ message: "Internal Server Error", success: false });
+    return res.status(500).json({ message: "Internal Server Error", success: false });
   }
 };
+
 
 export const verifyOtp = async (req, res) => {
   try {
