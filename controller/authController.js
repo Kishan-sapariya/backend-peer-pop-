@@ -162,35 +162,31 @@ export const login = async (req, res) => {
     if (!email || !password) {
       return res
         .status(400)
-        .json({ message: "All fields are required", success: false });
+        .json({ success: false, message: "All fields are required" });
     }
 
     const user = await prisma.userProfile.findUnique({
       where: { email },
-      include: {
-        creatorProfile: true,
-        businessProfile: true,
-      },
+      include: { creatorProfile: true, businessProfile: true },
     });
 
     if (!user) {
       return res
         .status(401)
-        .json({ message: "Invalid credentials", success: false });
+        .json({ success: false, message: "Invalid credentials" });
     }
 
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
       return res
         .status(401)
-        .json({ message: "Invalid credentials", success: false });
+        .json({ success: false, message: "Invalid credentials" });
     }
 
     if (!user.emailVerified) {
-      return res.status(403).json({
-        message: "Please verify your email before logging in",
-        success: false,
-      });
+      return res
+        .status(403)
+        .json({ success: false, message: "Please verify your email" });
     }
 
     const token = generateToken({
@@ -201,26 +197,28 @@ export const login = async (req, res) => {
 
     setCookieToken(res, token);
 
+    const userPayload = {
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      role: user.role,
+      emailVerified: user.emailVerified,
+      createdAt: user.createdAt,
+      image: user.image || null,
+      creatorType: user.creatorProfile?.creatorType || null,
+    };
+
     return res.status(200).json({
       success: true,
       message: "Login successful",
       redirect: "/feed",
-      user: {
-        id: user.id,
-        username: user.username,
-        email: user.email,
-        role: user.role,
-        emailVerified: user.emailVerified,
-        createdAt: user.createdAt,
-        image: user.image || null,
-        creatorType: user.creatorProfile?.creatorType || null,
-      },
+      user: userPayload,
     });
   } catch (error) {
     console.error("🔥 Login error:", error);
     return res
       .status(500)
-      .json({ message: "Internal Server Error", success: false });
+      .json({ success: false, message: "Internal Server Error" });
   }
 };
 
