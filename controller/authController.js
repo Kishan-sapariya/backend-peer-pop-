@@ -135,26 +135,13 @@ export const login = async (req, res) => {
       email: user.email,
       role: user.role,
     });
+
     setCookieToken(res, token);
 
-    return res.status(200).json({
-      message: "Login successful",
-      success: true,
-      user: {
-        id: user.id,
-        username: user.username,
-        email: user.email,
-        role: user.role,
-        emailVerified: user.emailVerified,
-        createdAt: user.createdAt,
-        ...(user.role === "CREATOR"
-          ? { creatorProfile: user.creatorProfile }
-          : { businessProfile: user.businessProfile }),
-      },
-    });
+    return res.redirect(302, "https://www.peerpop.in/feed");
   } catch (error) {
+    console.error(error);
     res.status(500).json({ message: "Internal Server Error", success: false });
-    console.log(error);
   }
 };
 
