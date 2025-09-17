@@ -108,7 +108,9 @@ export const login = async (req, res) => {
     const { email, password } = req.body;
 
     if (!email || !password) {
-      return res.status(400).json({ message: "All fields are required", success: false });
+      return res
+        .status(400)
+        .json({ message: "All fields are required", success: false });
     }
 
     const user = await prisma.userProfile.findUnique({
@@ -120,16 +122,23 @@ export const login = async (req, res) => {
     });
 
     if (!user) {
-      return res.status(401).json({ message: "Invalid credentials", success: false });
+      return res
+        .status(401)
+        .json({ message: "Invalid credentials", success: false });
     }
 
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
-      return res.status(401).json({ message: "Invalid credentials", success: false });
+      return res
+        .status(401)
+        .json({ message: "Invalid credentials", success: false });
     }
 
     if (!user.emailVerified) {
-      return res.status(403).json({ message: "Please verify your email before logging in", success: false });
+      return res.status(403).json({
+        message: "Please verify your email before logging in",
+        success: false,
+      });
     }
 
     const token = generateToken({
@@ -138,16 +147,7 @@ export const login = async (req, res) => {
       role: user.role,
     });
 
-    // Set cookie
-    setCookieToken("token", token, {
-      req,
-      res,
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "none",
-      maxAge: 7 * 24 * 60 * 60, 
-      path: "/",
-    });
+    setCookieToken(res, token);
 
     return res.status(200).json({
       success: true,
@@ -166,60 +166,83 @@ export const login = async (req, res) => {
     });
   } catch (error) {
     console.error("🔥 Login error:", error);
-    return res.status(500).json({ message: "Internal Server Error", success: false });
+    return res
+      .status(500)
+      .json({ message: "Internal Server Error", success: false });
   }
 };
 
+import bcrypt from "bcryptjs";
+import prisma from "@/lib/prisma";
+import { generateToken, setCookieToken } from "@/util/generateToken";
 
-export const verifyOtp = async (req, res) => {
+export const login = async (req, res) => {
   try {
-    const { email, otp } = req.body;
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res
+        .status(400)
+        .json({ message: "All fields are required", success: false });
+    }
+
     const user = await prisma.userProfile.findUnique({
-      where: {
-        email,
+      where: { email },
+      include: {
+        creatorProfile: true,
+        businessProfile: true,
       },
     });
+
     if (!user) {
       return res
-        .status(404)
-        .json({ message: "User not found with this email" });
-    }
-    if (user.otp !== otp || user.otpExpiry < new Date()) {
-      return res.status(401).json({ message: "Invalid OTP or OTP expired" });
+        .status(401)
+        .json({ message: "Invalid credentials", success: false });
     }
 
-    const updateUserProfile = await prisma.userProfile.update({
-      where: { email },
-      data: {
-        emailVerified: true,
-        otp: null,
-        otpExpiry: null,
-      },
-    });
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      return res
+        .status(401)
+        .json({ message: "Invalid credentials", success: false });
+    }
+
+    if (!user.emailVerified) {
+      return res.status(403).json({
+        message: "Please verify your email before logging in",
+        success: false,
+      });
+    }
+
     const token = generateToken({
-      id: updateUserProfile.id,
-      email: updateUserProfile.email,
+      id: user.id,
+      email: user.email,
+      role: user.role,
     });
 
+    // ✅ Correct usage of setCookieToken
     setCookieToken(res, token);
 
     return res.status(200).json({
-      message: "Otp verified successfully",
       success: true,
+      message: "Login successful",
+      redirect: "/feed",
       user: {
-        username: updateUserProfile.username,
-        email: updateUserProfile.email,
-        emailVerified: updateUserProfile.emailVerified,
-        firstName: updateUserProfile.firstName,
-        lastName: updateUserProfile.lastName,
-        createdAt: updateUserProfile.createdAt,
-        creatorType: user.creatorProfile?.creatorType,
-        role: updateUserProfile.role,
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        role: user.role,
+        emailVerified: user.emailVerified,
+        createdAt: user.createdAt,
+        image: user.image || null,
+        creatorType: user.creatorProfile?.creatorType || null,
       },
     });
   } catch (error) {
-    res.status(500).json({ message: "Internal Server Error", success: false });
-    console.log(error);
+    console.error("🔥 Login error:", error);
+    return res
+      .status(500)
+      .json({ message: "Internal Server Error", success: false });
   }
 };
 
