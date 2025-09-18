@@ -1,35 +1,21 @@
-import nodemailer from "nodemailer";
+import Brevo from "@getbrevo/brevo";
 
-const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com",
-  port: 465, 
-  secure: true, 
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-  connectionTimeout: 30000, 
-  greetingTimeout: 15000, 
-  socketTimeout: 30000, 
-  pool: true,
-  maxConnections: 3, 
-  maxMessages: 50,
-  tls: {
-    rejectUnauthorized: false, 
-    ciphers: 'SSLv3'
-  },
-  debug: process.env.NODE_ENV === 'production',
-  logger: process.env.NODE_ENV === 'production'
-});
+const brevo = new Brevo.TransactionalEmailsApi();
+brevo.setApiKey(
+  Brevo.TransactionalEmailsApiApiKeys.apiKey,
+  process.env.BREVO_API_KEY
+);
 
 export const sendOTP = async (email, otp) => {
   try {
-    
-    const mailOptions = {
-      from: `"Peer Pop" <${process.env.EMAIL_USER}>`,
-      to: email,
+    const sendSmtpEmail = {
+      sender: {
+        name: "Peer Pop",
+        email: "no-reply@peerpop.in", 
+      },
+      to: [{ email }],
       subject: "Email Verification OTP - Peer Pop",
-      html: `
+      htmlContent: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
           <div style="text-align: center; margin-bottom: 30px;">
             <h1 style="color: #333; margin: 0;">Peer Pop</h1>
@@ -50,25 +36,14 @@ export const sendOTP = async (email, otp) => {
           </div>
         </div>
       `,
-      text: `Your Peer Pop verification code is: ${otp}\n\nThis code expires in 10 minutes.\n\nIf you didn't request this verification, please ignore this email.`
+      textContent: `Your Peer Pop verification code is: ${otp}\n\nThis code expires in 10 minutes.\n\nIf you didn't request this verification, please ignore this email.`,
     };
 
-    const result = await transporter.sendMail(mailOptions);
-    console.log('✅ Email sent successfully:', result.messageId);
+    const result = await brevo.sendTransacEmail(sendSmtpEmail);
+    console.log("✅ Email sent:", result.messageId || result);
     return { success: true, messageId: result.messageId };
-    
   } catch (error) {
-    console.error('❌ Email sending failed:', error);
-    
-    // Specific error handling for common Render issues
-    if (error.code === 'ETIMEDOUT') {
-      throw new Error('Email service timeout - please try again in a moment');
-    } else if (error.code === 'ECONNREFUSED') {
-      throw new Error('Email service unavailable - please contact support');
-    } else if (error.responseCode === 535) {
-      throw new Error('Email authentication failed - please contact support');
-    } else {
-      throw new Error(`Email delivery failed: ${error.message}`);
-    }
+    console.error("❌ Email sending failed:", error.message || error);
+    throw new Error("Email delivery failed - please try again later");
   }
 };
