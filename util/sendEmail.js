@@ -11,7 +11,7 @@ export const sendOTP = async (email, otp) => {
     const sendSmtpEmail = {
       sender: {
         name: "Peer Pop",
-        email: "no-reply@peerpop.in", 
+        email: "peerpopdevelopment@gmail.com",
       },
       to: [{ email }],
       subject: "Email Verification OTP - Peer Pop",
@@ -40,7 +40,6 @@ export const sendOTP = async (email, otp) => {
     };
 
     const result = await brevo.sendTransacEmail(sendSmtpEmail);
-    console.log("✅ Email sent:", result.messageId || result);
     return { success: true, messageId: result.messageId };
   } catch (error) {
     console.error("❌ Email sending failed:", error.message || error);
