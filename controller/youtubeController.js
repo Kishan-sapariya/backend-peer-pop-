@@ -94,7 +94,6 @@ export const getYoutubeProfileByUsername = async (req, res) => {
       });
     }
 
-    // ✅ Add profile completion
     const completion = calculateProfileCompletion(
       profile.creatorType,
       profile.data
@@ -290,17 +289,12 @@ export const addCollaboration = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    if (userId !== user.userProfileId) {
-      return res.status(403).json({ message: "Forbidden" });
-    }
-
-    const currentData = user.data || {};
-
     const collaborationsWithId = (collaborations || []).map((collab) => ({
       id: uuidv4(),
       ...collab,
     }));
 
+    const currentData = user.data || {};
     const mergedData = {
       ...currentData,
       collaborations: [
@@ -312,11 +306,20 @@ export const addCollaboration = async (req, res) => {
     const updatedProfile = await prisma.creatorProfile.update({
       where: { userProfileId: userId },
       data: { data: mergedData },
+      include: { userProfile: true },
     });
+
+    const completion = calculateProfileCompletion(
+      updatedProfile.creatorType,
+      updatedProfile.data
+    );
 
     return res.status(200).json({
       message: "Collaboration added successfully",
-      user: updatedProfile,
+      user: {
+        ...updatedProfile,
+        completion,
+      },
     });
   } catch (error) {
     console.error(error);
@@ -381,14 +384,12 @@ export const addAchievement = async (req, res) => {
     if (!user) {
       return res.status(404).json({ message: "user not found" });
     }
-    if (userId !== user.userProfileId) {
-      return res.status(403).json({ message: "Forbidden" });
-    }
 
     const achievementWithId = (achievements || []).map((achievement) => ({
       id: uuidv4(),
       ...achievement,
     }));
+
     const currentData = user.data || {};
     const mergedData = {
       ...currentData,
@@ -396,16 +397,22 @@ export const addAchievement = async (req, res) => {
     };
 
     const updatedProfile = await prisma.creatorProfile.update({
-      where: {
-        userProfileId: userId,
-      },
-      data: {
-        data: mergedData,
-      },
+      where: { userProfileId: userId },
+      data: { data: mergedData },
+      include: { userProfile: true },
     });
+
+    const completion = calculateProfileCompletion(
+      updatedProfile.creatorType,
+      updatedProfile.data
+    );
+
     return res.status(200).json({
       message: "Achievement added successfully",
-      user: updatedProfile,
+      user: {
+        ...updatedProfile,
+        completion,
+      },
     });
   } catch (error) {
     console.error(error);
@@ -493,10 +500,7 @@ export const updateYoutubeProfile = async (req, res) => {
     console.error("Error updating YouTube profile:", error);
     res.status(500).json({
       message: "Internal server error",
-      error:
-        process.env.NODE_ENV === "development" ? error.message : undefined,
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
     });
   }
 };
-
-

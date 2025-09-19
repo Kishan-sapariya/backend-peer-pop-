@@ -112,24 +112,26 @@ export const getComedianProfileByUsername = async (req, res) => {
 export const addUpcomingShows = async (req, res) => {
   const { id: userId } = req.user;
   const { upcomingShows } = req.body;
+
   try {
     const user = await prisma.creatorProfile.findUnique({
-      where: {
-        userProfileId: userId,
-      },
+      where: { userProfileId: userId },
+      include: { userProfile: true },
     });
+
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
+
     if (userId !== user.userProfileId) {
       return res.status(403).json({ message: "Forbidden" });
     }
 
     const currentData = user.data || {};
 
-    const upcomingShowWithId = (upcomingShows || []).map((shows) => ({
+    const upcomingShowWithId = (upcomingShows || []).map((show) => ({
       id: uuidv4(),
-      ...shows,
+      ...show,
     }));
 
     const mergedData = {
@@ -143,11 +145,20 @@ export const addUpcomingShows = async (req, res) => {
     const updatedProfile = await prisma.creatorProfile.update({
       where: { userProfileId: userId },
       data: { data: mergedData },
+      include: { userProfile: true },
     });
 
+    const completion = calculateProfileCompletion(
+      updatedProfile.creatorType,
+      updatedProfile.data
+    );
+
     return res.status(200).json({
-      message: "upcoming show added successfully",
-      user: updatedProfile,
+      message: "Upcoming show added successfully",
+      user: {
+        ...updatedProfile,
+        completion,
+      },
     });
   } catch (error) {
     console.error("Error Adding upcoming shows:", error);
@@ -307,10 +318,11 @@ export const addAchievement = async (req, res) => {
 
     const user = await prisma.creatorProfile.findUnique({
       where: { userProfileId: userId },
+      include: { userProfile: true }, // include userProfile
     });
 
     if (!user) {
-      return res.status(404).json({ message: "user not found" });
+      return res.status(404).json({ message: "User not found" });
     }
 
     if (userId !== user.userProfileId) {
@@ -331,15 +343,24 @@ export const addAchievement = async (req, res) => {
     const updatedProfile = await prisma.creatorProfile.update({
       where: { userProfileId: userId },
       data: { data: mergedData },
+      include: { userProfile: true }, 
     });
+
+    const completion = calculateProfileCompletion(
+      updatedProfile.creatorType,
+      updatedProfile.data
+    );
 
     return res.status(200).json({
       message: "Achievement added successfully",
-      user: updatedProfile,
+      user: {
+        ...updatedProfile,
+        completion, 
+      },
     });
   } catch (error) {
-    console.error(error);
-    return res.status(500).json({ message: "internal server error" });
+    console.error("Error adding achievement:", error);
+    return res.status(500).json({ message: "Internal server error" });
   }
 };
 

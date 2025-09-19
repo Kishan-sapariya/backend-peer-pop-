@@ -269,13 +269,8 @@ export const addCampaigns = async (req, res) => {
       where: { userProfileId: userId },
     });
 
-    if (!creator) {
-      return res.status(404).json({ message: "Creator profile not found" });
-    }
-
-    if (creator.userProfileId !== userId) {
-      return res.status(403).json({ message: "Forbidden" });
-    }
+    if (!creator) return res.status(404).json({ message: "Creator profile not found" });
+    if (creator.userProfileId !== userId) return res.status(403).json({ message: "Forbidden" });
 
     const currentData = creator.data || {};
 
@@ -298,15 +293,24 @@ export const addCampaigns = async (req, res) => {
       data: { data: updatedData },
     });
 
+    const completion = calculateProfileCompletion(
+      updatedProfile.creatorType,
+      updatedProfile.data
+    );
+
     return res.status(200).json({
       message: "Campaigns added successfully",
-      campaigns: updatedProfile.data.campaigns,
+      user: {
+        ...updatedProfile,
+        completion,
+      },
     });
   } catch (error) {
     console.error("addCampaigns error:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
+
 
 export const deleteCampaign = async (req, res) => {
   const { id: userId } = req.user;
