@@ -12,8 +12,8 @@ router.get(
       "email",
       "https://www.googleapis.com/auth/youtube.readonly",
     ],
-    accessType: "offline", 
-    prompt: "consent", 
+    accessType: "offline",
+    prompt: "consent",
   })
 );
 
@@ -26,11 +26,14 @@ router.get(
   (req, res) => {
     const user = req.user;
     const token = generateToken(user);
+
     setCookieToken(res, token);
 
-    res.redirect(
-      `${process.env.FRONTEND_URL}/feed` || "http://localhost:3000/feed"
-    );
+    const redirectUrl = user.isNewUser
+      ? `${process.env.FRONTEND_URL}/onboarding`
+      : `${process.env.FRONTEND_URL}/feed`;
+
+    res.redirect(redirectUrl);
   }
 );
 
