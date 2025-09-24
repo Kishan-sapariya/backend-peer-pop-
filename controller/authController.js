@@ -410,7 +410,7 @@ export async function searchUsers(req, res) {
     const OR = [];
     const AND = [];
 
-    // 🔎 Search by q
+    // 🔎 Search by q (including creator types)
     if (q && q.trim()) {
       OR.push(
         { username: { startsWith: q, mode: "insensitive" } },
@@ -441,9 +441,34 @@ export async function searchUsers(req, res) {
           },
         }
       );
+
+      const creatorTypes = [
+        "YOUTUBER",
+        "COMEDIAN",
+        "INFLUENCER",
+        "MUSICIAN",
+        "DANCER",
+        "PHOTOGRAPHER",
+        "PODCASTER",
+        "ACTOR",
+      ];
+
+      const matchingTypes = creatorTypes.filter((type) =>
+        type.toLowerCase().includes(q.toLowerCase())
+      );
+
+      if (matchingTypes.length > 0) {
+        OR.push({
+          creatorProfile: {
+            is: {
+              creatorType: { in: matchingTypes },
+            },
+          },
+        });
+      }
     }
 
-    // 🔎 Filter by creatorType
+    // 🔎 Filter by creatorType (existing filter functionality)
     if (creatorType) {
       const types = Array.isArray(creatorType)
         ? creatorType
