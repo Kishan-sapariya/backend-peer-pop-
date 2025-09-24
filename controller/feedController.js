@@ -4,6 +4,7 @@ import cloudinary, {
   uploadOptions,
 } from "../config/cloudinary.js";
 import prisma from "../util/prisma.js";
+import { calculateProfileCompletion } from "../util/profileConfig.js";
 
 export const getUserDetailsForFeed = async (req, res) => {
   const { id: userId } = req.user;
@@ -14,10 +15,18 @@ export const getUserDetailsForFeed = async (req, res) => {
         id: true,
         username: true,
         image: true,
+        role: true,
         creatorProfile: {
           select: {
             creatorType: true,
             data: true,
+          },
+        },
+        businessProfile: {
+          select: {
+            industry: true,
+            businessType: true,
+            headquarters: true,
           },
         },
         requestsSent: {
@@ -47,22 +56,49 @@ export const getUserDetailsForFeed = async (req, res) => {
       },
     });
 
+    let completion;
+    if (user.role === "BUSINESS" && user.businessProfile) {
+      const businessData = {
+        businessInfo: {
+          industry: user.businessProfile.industry,
+          businessType: user.businessProfile.businessType,
+        },
+      };
+      completion = {}
+    } else if (user.creatorProfile) {
+      completion = calculateProfileCompletion(
+        user.creatorProfile.creatorType,
+        user.creatorProfile.data
+      );
+    } else {
+      completion = { percentage: 0, category: "Basic" };
+    }
+
     const userDetails = {
       id: user.id,
       username: user.username,
       image: user.image,
       creatorType: user.creatorProfile?.creatorType,
+      role: user.role,
       location: user.creatorProfile?.data?.personalInfo?.location || null,
       peersCount,
       postCount,
     };
 
+    const businessDetails = {
+      industry: user.businessProfile?.industry,
+      businessType: user.businessProfile?.businessType,
+      location: user.businessProfile?.headquarters,
+    };
+
     return res.status(200).json({
       message: "Fetched user details",
       userDetails,
+      businessDetails,
+      completion,
     });
   } catch (error) {
-    console.log(error);
+    console.error(error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
