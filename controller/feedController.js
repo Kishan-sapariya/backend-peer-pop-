@@ -80,7 +80,9 @@ export const getUserDetailsForFeed = async (req, res) => {
       image: user.image,
       creatorType: user.creatorProfile?.creatorType,
       role: user.role,
-      location: user.creatorProfile?.data?.personalInfo?.location || null,
+      state: user.creatorProfile?.data?.personalInfo?.state || null,
+      city: user.creatorProfile?.data?.personalInfo?.city || null,
+      customCity: user.creatorProfile?.data?.personalInfo?.customCity || null,
       peersCount,
       postCount,
     };
