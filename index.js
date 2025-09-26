@@ -23,6 +23,7 @@ import businessRoutes from "./routes/businessRoute.js";
 import adminRoutes from "./routes/adminRoute.js";
 import passport from "./config/passport.js";
 import "./cron/updateYoutubeStats.js";
+import prisma from "./util/prisma.js";
 
 dotenv.config();
 
@@ -99,6 +100,11 @@ io.on("connection", (socket) => {
   socket.on("disconnect", () => {
     console.log("❌ Client disconnected:", socket.id);
   });
+});
+
+process.on("beforeExit", async () => {
+  console.log("👋 Cleaning up Prisma...");
+  await prisma.$disconnect();
 });
 
 const PORT = process.env.PORT || 5000;
