@@ -43,8 +43,6 @@ app.use(
   })
 );
 
-app.options("*", cors());
-
 app.use(express.json());
 app.use(cookieParser());
 app.use(passport.initialize());
@@ -102,11 +100,6 @@ io.on("connection", (socket) => {
   socket.on("disconnect", () => {
     console.log("❌ Client disconnected:", socket.id);
   });
-});
-
-process.on("beforeExit", async () => {
-  console.log("👋 Cleaning up Prisma...");
-  await prisma.$disconnect();
 });
 
 const PORT = process.env.PORT || 5000;
