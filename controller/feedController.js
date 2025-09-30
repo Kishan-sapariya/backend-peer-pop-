@@ -30,14 +30,10 @@ export const getUserDetailsForFeed = async (req, res) => {
           },
         },
         requestsSent: {
-          select: {
-            status: true,
-          },
+          select: { status: true },
         },
         requestsReceived: {
-          select: {
-            status: true,
-          },
+          select: { status: true },
         },
       },
     });
@@ -51,9 +47,7 @@ export const getUserDetailsForFeed = async (req, res) => {
       user.requestsReceived.filter((r) => r.status === "ACCEPTED").length;
 
     const postCount = await prisma.post.count({
-      where: {
-        userId: userId,
-      },
+      where: { userId },
     });
 
     let completion;
@@ -64,7 +58,7 @@ export const getUserDetailsForFeed = async (req, res) => {
           businessType: user.businessProfile.businessType,
         },
       };
-      completion = {}
+      completion = {};
     } else if (user.creatorProfile) {
       completion = calculateProfileCompletion(
         user.creatorProfile.creatorType,
@@ -74,15 +68,32 @@ export const getUserDetailsForFeed = async (req, res) => {
       completion = { percentage: 0, category: "Basic" };
     }
 
+    let handleName = null;
+
+    if (user.creatorProfile) {
+      const { creatorType, data } = user.creatorProfile;
+
+      if (creatorType === "YOUTUBER") {
+        handleName = data?.channelInfo?.channelHandle || null;
+      } else if (creatorType === "COMEDIAN") {
+        handleName = data?.personalInfo?.stageName || null;
+      } else if (creatorType === "INFLUENCER") {
+        handleName = data?.personalInfo?.displayName || null;
+      }
+    }
+
     const userDetails = {
       id: user.id,
       username: user.username,
       image: user.image,
       creatorType: user.creatorProfile?.creatorType,
       role: user.role,
-      location: user.creatorProfile?.data?.personalInfo?.location || null,
+      state: user.creatorProfile?.data?.personalInfo?.state,
+      city: user.creatorProfile?.data?.personalInfo?.city,
+      customCity: user.creatorProfile?.data?.personalInfo?.customCity,
       peersCount,
       postCount,
+      handleName,
     };
 
     const businessDetails = {
