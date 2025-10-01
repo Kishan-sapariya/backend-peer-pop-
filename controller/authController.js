@@ -468,7 +468,7 @@ export async function searchUsers(req, res) {
       }
     }
 
-    // 🔎 Filter by creatorType (existing filter functionality)
+    // 🔎 Filter by creatorType 
     if (creatorType) {
       const types = Array.isArray(creatorType)
         ? creatorType
@@ -483,7 +483,7 @@ export async function searchUsers(req, res) {
       });
     }
 
-    // 🔎 Filter by location
+    // 🔎 Filter by location 
     if (location) {
       const locations = Array.isArray(location)
         ? location
@@ -491,15 +491,44 @@ export async function searchUsers(req, res) {
 
       AND.push({
         OR: locations.map((loc) => ({
-          creatorProfile: {
-            is: {
-              data: {
-                path: ["personalInfo", "location"],
-                string_contains: loc,
-                mode: "insensitive",
+          OR: [
+            // Search in state
+            {
+              creatorProfile: {
+                is: {
+                  data: {
+                    path: ["personalInfo", "state"],
+                    string_contains: loc,
+                    mode: "insensitive",
+                  },
+                },
               },
             },
-          },
+            // Search in city
+            {
+              creatorProfile: {
+                is: {
+                  data: {
+                    path: ["personalInfo", "city"],
+                    string_contains: loc,
+                    mode: "insensitive",
+                  },
+                },
+              },
+            },
+            // Search in customCity
+            {
+              creatorProfile: {
+                is: {
+                  data: {
+                    path: ["personalInfo", "customCity"],
+                    string_contains: loc,
+                    mode: "insensitive",
+                  },
+                },
+              },
+            },
+          ],
         })),
       });
     }
