@@ -9,7 +9,7 @@ router.get("/auth", (req, res) => {
   const oauth2Client = new google.auth.OAuth2(
     process.env.GOOGLE_CLIENT_ID,
     process.env.GOOGLE_SECRET,
-    "http://localhost:5000/api/youtube/callback"
+    process.env.YOUTUBE_CALLBACK_URL 
   );
 
   const scopes = [
@@ -33,7 +33,7 @@ router.get("/callback", async (req, res) => {
   const oauth2Client = new google.auth.OAuth2(
     process.env.GOOGLE_CLIENT_ID,
     process.env.GOOGLE_SECRET,
-    "http://localhost:5000/api/youtube/callback"
+    process.env.YOUTUBE_CALLBACK_URL 
   );
 
   try {
@@ -71,8 +71,7 @@ router.get("/callback", async (req, res) => {
     const now = new Date();
     const monthsOld =
       (now.getFullYear() - createdAt.getFullYear()) * 12 +
-      now.getMonth() -
-      createdAt.getMonth();
+      now.getMonth() - createdAt.getMonth();
 
     const youtubeData = {
       source: "youtube",
