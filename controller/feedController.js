@@ -65,7 +65,7 @@ export const getUserDetailsForFeed = async (req, res) => {
         user.creatorProfile.data
       );
     } else {
-      completion = { percentage: 0, category: "Basic" };
+      completion = { percentage: 0, category: "Rising" };
     }
 
     let handleName = null;

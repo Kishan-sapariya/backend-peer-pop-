@@ -138,7 +138,7 @@ function getNestedValue(obj, path) {
 
 export function calculateProfileCompletion(creatorType, data) {
   const config = PROFILE_FIELDS[creatorType];
-  if (!config) return { percentage: 0, category: "Basic" };
+  if (!config) return { percentage: 0, category: "Rising" };
 
   const { required, optional } = config;
 
