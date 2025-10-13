@@ -100,17 +100,62 @@ export const getConnections = async (req, res) => {
         senderId: true,
         receiverId: true,
         sender: {
-          select: { id: true, username: true, image: true },
+          select: {
+            id: true,
+            username: true,
+            image: true,
+            creatorProfile: {
+              select: {
+                creatorType: true, 
+              },
+            },
+            businessProfile: {
+              select: {
+                id: true, 
+              },
+            },
+          },
         },
         receiver: {
-          select: { id: true, username: true, image: true },
+          select: {
+            id: true,
+            username: true,
+            image: true,
+            creatorProfile: {
+              select: {
+                creatorType: true, 
+              },
+            },
+            businessProfile: {
+              select: {
+                id: true, 
+              },
+            },
+          },
         },
       },
     });
 
+    const processedRequests = requests.map((conn) => ({
+      ...conn,
+      sender: {
+        ...conn.sender,
+        type: conn.sender.businessProfile ? "BUSINESS" : "CREATOR",
+        creatorType: conn.sender.creatorProfile?.creatorType,
+      },
+      receiver: {
+        ...conn.receiver,
+        type: conn.receiver.businessProfile ? "BUSINESS" : "CREATOR",
+        creatorType: conn.receiver.creatorProfile?.creatorType,
+      },
+    }));
+
     return res
       .status(200)
-      .json({ message: "Fetched all connections", requests });
+      .json({
+        message: "Fetched all connections",
+        requests: processedRequests,
+      });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "Internal server error" });
