@@ -8,6 +8,7 @@ import {
   getFeedPosts,
   getMyPosts,
   getPostForMyPeers,
+  getSuggestedUsers,
   getUserDetailsForFeed,
   toggelLike,
 } from "../controller/feedController.js";
@@ -39,4 +40,5 @@ router.delete(
   deleteComment
 );
 
+router.get("/get-suggested-users", protectedRoute, getSuggestedUsers);
 export default router;

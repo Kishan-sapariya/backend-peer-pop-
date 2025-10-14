@@ -574,3 +574,68 @@ export const deleteComment = async (req, res) => {
     res.status(500).json({ message: "Failed to delete comment" });
   }
 };
+
+export const getSuggestedUsers = async (req, res) => {
+  const { id: userId } = req.user;
+
+  try {
+    const connections = await prisma.connection.findMany({
+      where: {
+        OR: [{ senderId: userId }, { receiverId: userId }],
+      },
+      select: {
+        senderId: true,
+        receiverId: true,
+      },
+    });
+
+    const connectedIds = new Set();
+    connections.forEach((c) => {
+      connectedIds.add(c.senderId);
+      connectedIds.add(c.receiverId);
+    });
+    connectedIds.add(userId);
+
+    const suggestedUsers = await prisma.userProfile.findMany({
+      where: {
+        id: { notIn: Array.from(connectedIds) },
+      },
+      take: 10,
+      select: {
+        id: true,
+        username: true,
+        image: true,
+        creatorProfile: {
+          select: {
+            creatorType: true,
+            data: true,
+          },
+        },
+      },
+    });
+
+    const shuffled = suggestedUsers.sort(() => Math.random() - 0.5);
+
+    const finalUsers = shuffled.slice(0, 3).map((user) => {
+      let completion = { percentage: 0, category: "Rising" };
+
+      if (user.creatorProfile) {
+        const { creatorType, data } = user.creatorProfile;
+        completion = calculateProfileCompletion(creatorType, data);
+      }
+
+      return {
+        id: user.id,
+        username: user.username,
+        image: user.image,
+        creatorType: user.creatorProfile?.creatorType || null,
+        completion,
+      };
+    });
+
+    res.status(200).json({ users: finalUsers });
+  } catch (error) {
+    console.error("Error fetching suggested users:", error);
+    res.status(500).json({ message: "Failed to fetch suggested users" });
+  }
+};
