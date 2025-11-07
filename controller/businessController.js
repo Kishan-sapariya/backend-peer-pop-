@@ -9,7 +9,6 @@ export const postBusinessDetails = async (req, res) => {
     const { basicInfo, contact, location, socials, gstNumber, panNumber } =
       req.body;
 
-    // ✅ Parse JSON payloads safely
     let parsedBasicInfo = {};
     let parsedContact = {};
     let parsedLocation = {};
@@ -200,10 +199,9 @@ export const getBusinessProfileDetailsByUsername = async (req, res) => {
 
 export const updateBusinessBasicInfo = async (req, res) => {
   try {
-    const loggedInUserId = req.user.id; // assuming you're using auth middleware
+    const loggedInUserId = req.user.id; 
     const { about, website, supportEmail, phone } = req.body;
 
-    // ✅ Update businessProfile fields
     const updatedProfile = await prisma.businessProfile.update({
       where: { userProfileId: loggedInUserId },
       data: {
@@ -285,7 +283,6 @@ export const reuploadBusinessDocuments = async (req, res) => {
   try {
     const loggedInUserId = req.user.id;
 
-    // ✅ Fetch the existing business profile
     const existingProfile = await prisma.businessProfile.findUnique({
       where: { userProfileId: loggedInUserId },
     });
@@ -294,7 +291,6 @@ export const reuploadBusinessDocuments = async (req, res) => {
       return res.status(404).json({ message: "Business profile not found" });
     }
 
-    // ✅ Allow re-upload only if status is REJECTED
     if (existingProfile.status !== "REJECTED") {
       return res.status(403).json({
         message:
@@ -305,7 +301,6 @@ export const reuploadBusinessDocuments = async (req, res) => {
     let gstCertificateUrl = existingProfile.gstCertificateUrl;
     let panDocumentUrl = existingProfile.panDocumentUrl;
 
-    // ✅ Upload GST Certificate if new file provided
     if (req.files?.gstFile?.[0]) {
       const result = await streamUpload(
         req.files.gstFile[0].buffer,
@@ -314,7 +309,6 @@ export const reuploadBusinessDocuments = async (req, res) => {
       gstCertificateUrl = result.secure_url;
     }
 
-    // ✅ Upload PAN Document if new file provided
     if (req.files?.panFile?.[0]) {
       const result = await streamUpload(
         req.files.panFile[0].buffer,
@@ -323,7 +317,6 @@ export const reuploadBusinessDocuments = async (req, res) => {
       panDocumentUrl = result.secure_url;
     }
 
-    // ✅ Update GST number & PAN number from req.body if provided
     const { gstNumber, panNumber } = req.body;
 
     if (!gstNumber || !panNumber) {
@@ -332,7 +325,6 @@ export const reuploadBusinessDocuments = async (req, res) => {
         .json({ message: "GST number and PAN number are required" });
     }
 
-    // ✅ Update business profile and reset status → PENDING
     const updatedProfile = await prisma.businessProfile.update({
       where: { userProfileId: loggedInUserId },
       data: {
@@ -341,11 +333,10 @@ export const reuploadBusinessDocuments = async (req, res) => {
         gstNumber,
         panNumber,
         status: "PENDING",
-        rejectionReason: null, // clear old reason
+        rejectionReason: null, 
       },
     });
 
-    // ✅ Notify user
     await prisma.notification.create({
       data: {
         receiverId: loggedInUserId,
@@ -468,3 +459,4 @@ export const deleteBusinessAchievement = async (req, res) => {
     res.status(500).json({ message: "Failed to delete achievement" });
   }
 };
+
