@@ -2,26 +2,28 @@ import express from "express";
 import { google } from "googleapis";
 import prisma from "../util/prisma.js";
 import jwt from "jsonwebtoken";
+import crypto from "crypto";
 
 const router = express.Router();
+
+// Simple in-memory state store (good enough for your case)
+const stateStore = new Map();
 
 router.get("/auth", (req, res) => {
   const oauth2Client = new google.auth.OAuth2(
     process.env.GOOGLE_CLIENT_ID,
     process.env.GOOGLE_SECRET,
-    process.env.YOUTUBE_CALLBACK_URL 
+    process.env.YOUTUBE_CALLBACK_URL
   );
 
-  const scopes = [
-    "https://www.googleapis.com/auth/youtube.readonly",
-    "https://www.googleapis.com/auth/userinfo.email",
-    "https://www.googleapis.com/auth/userinfo.profile",
-  ];
+  const state = crypto.randomUUID();
+  stateStore.set(state, true);
 
   const url = oauth2Client.generateAuthUrl({
     access_type: "offline",
-    prompt: "consent",
-    scope: scopes,
+    prompt: "consent", // ensures refresh_token on first connect
+    scope: ["https://www.googleapis.com/auth/youtube.readonly"],
+    state,
   });
 
   res.redirect(url);
@@ -29,22 +31,27 @@ router.get("/auth", (req, res) => {
 
 router.get("/callback", async (req, res) => {
   const code = req.query.code;
+  const state = req.query.state;
+
+  if (!stateStore.has(state)) {
+    return res.status(401).json({ message: "Invalid OAuth state" });
+  }
+  stateStore.delete(state);
+
+  const token = req.cookies.token;
+  if (!token) return res.status(401).json({ message: "User not logged in" });
+
+  const decoded = jwt.verify(token, process.env.JWT_SECRET);
+  const userId = decoded.id;
 
   const oauth2Client = new google.auth.OAuth2(
     process.env.GOOGLE_CLIENT_ID,
     process.env.GOOGLE_SECRET,
-    process.env.YOUTUBE_CALLBACK_URL 
+    process.env.YOUTUBE_CALLBACK_URL
   );
 
   try {
     const { tokens } = await oauth2Client.getToken(code);
-
-    if (!tokens.access_token) {
-      return res
-        .status(401)
-        .json({ message: "Authentication failed: access token missing." });
-    }
-
     oauth2Client.setCredentials(tokens);
 
     const youtube = google.youtube({ version: "v3", auth: oauth2Client });
@@ -54,24 +61,16 @@ router.get("/callback", async (req, res) => {
     });
 
     const channel = response.data.items?.[0];
-    if (!channel) {
-      return res.status(404).json({ message: "No channel found" });
-    }
+    if (!channel) return res.status(404).json({ message: "No channel found" });
 
-    const oauth2 = google.oauth2({ auth: oauth2Client, version: "v2" });
-    const userInfo = await oauth2.userinfo.get();
+    const { id: channelId, statistics, snippet } = channel;
 
-    const connectedGoogleId = userInfo.data.id;
-    const token = req.cookies.token;
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const userId = decoded.id;
-
-    const { statistics, snippet } = channel;
     const createdAt = new Date(snippet.publishedAt);
     const now = new Date();
     const monthsOld =
       (now.getFullYear() - createdAt.getFullYear()) * 12 +
-      now.getMonth() - createdAt.getMonth();
+      now.getMonth() -
+      createdAt.getMonth();
 
     const youtubeData = {
       source: "youtube",
@@ -83,31 +82,31 @@ router.get("/callback", async (req, res) => {
       channelAge: monthsOld,
     };
 
+    // Store tokens (refresh token only matters for cron updates)
     await prisma.youTubeAuth.upsert({
       where: { userProfileId: userId },
       update: {
-        refreshToken: tokens.refresh_token,
+        refreshToken: tokens.refresh_token ?? undefined,
         accessToken: tokens.access_token,
         expiryDate: tokens.expiry_date
           ? new Date(tokens.expiry_date)
           : undefined,
-        scope: tokens.scope,
         tokenType: tokens.token_type,
-        googleId: connectedGoogleId,
+        googleId: channelId, // <-- correct unique id
       },
       create: {
         userProfileId: userId,
-        refreshToken: tokens.refresh_token,
+        refreshToken: tokens.refresh_token ?? null,
         accessToken: tokens.access_token,
         expiryDate: tokens.expiry_date
           ? new Date(tokens.expiry_date)
           : undefined,
-        scope: tokens.scope,
         tokenType: tokens.token_type,
-        googleId: connectedGoogleId,
+        googleId: channelId,
       },
     });
 
+    // Store Stats
     await prisma.youTubeStats.upsert({
       where: { userProfileId: userId },
       update: { stats: youtubeData },
@@ -118,8 +117,8 @@ router.get("/callback", async (req, res) => {
     });
 
     res.redirect(`${process.env.FRONTEND_URL}/onboarding/youtuber`);
-  } catch (error) {
-    console.error("YouTube OAuth failed:", error);
+  } catch (err) {
+    console.error("YouTube OAuth failed:", err);
     res.status(500).json({ message: "YouTube connection failed" });
   }
 });

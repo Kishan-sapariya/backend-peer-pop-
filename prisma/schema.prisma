@@ -4,9 +4,9 @@ generator client {
 }
 
 datasource db {
-  provider   = "postgresql"
-  url        = env("DATABASE_URL")
-  directUrl  = env("DIRECT_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 enum ConnectionStatus {
@@ -67,6 +67,11 @@ enum AccountVisibility {
   PRIVATE
 }
 
+enum GroupJoinType {
+  INVITE_ONLY
+  ANYONE_CAN_JOIN
+}
+
 model UserProfile {
   id                  String                @id @default(uuid())
   username            String                @unique
@@ -91,6 +96,10 @@ model UserProfile {
   sentMessages        Message[]             @relation("UserMessages")
   sentNotifications   Notification[]        @relation("SentNotifications")
   receivedNotifications Notification[]      @relation("ReceivedNotifications")
+
+  groupsAdmin         Group[]               @relation("UserGroupsAdmin")
+  groupMemberships    GroupMember[]         @relation("UserGroupMemberships")
+
   post                Post[]
   comments            Comment[]
   likes               Like[]
@@ -102,8 +111,40 @@ model UserProfile {
   otpExpiry           DateTime?
   createdAt           DateTime              @default(now())
   updatedAt           DateTime              @updatedAt
+
   @@index([visibility])
 }
+
+model Group {
+  id           String       @id @default(uuid())
+  name         String       @unique
+  description  String?
+  image        String?      
+  joinType     GroupJoinType @default(ANYONE_CAN_JOIN)
+  adminId      String
+
+  admin        UserProfile   @relation("UserGroupsAdmin", fields: [adminId], references: [id], onDelete: Cascade)
+  members      GroupMember[]
+  posts        Post[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+}
+
+model GroupMember {
+  id        String      @id @default(uuid())
+  groupId   String
+  userId    String
+  role      String       @default("MEMBER") 
+  joinedAt  DateTime     @default(now())
+
+  group     Group        @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user      UserProfile  @relation("UserGroupMemberships", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, userId])
+  @@index([groupId])
+  @@index([userId])
+}
+
 
 model Connection {
   id           String           @id @default(uuid())
@@ -242,7 +283,7 @@ model ConversationParticipant {
   userId         String
    lastReadAt     DateTime?
 
-  conversation Conversation @relation(fields: [conversationId], references: [id])
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   user         UserProfile  @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([conversationId, userId])
@@ -257,7 +298,8 @@ model Message {
   attachmentType String?
   createdAt      DateTime     @default(now())
 
-  conversation Conversation @relation(fields: [conversationId], references: [id])
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
   sender       UserProfile  @relation("UserMessages", fields: [senderId], references: [id], onDelete: Cascade)
 }
 
@@ -277,6 +319,7 @@ model Notification {
 model Post {
   id          String       @id @default(uuid())
   userId      String
+  groupId     String?
   category    PostCategory
   customLabel String?
   description String?
@@ -286,8 +329,10 @@ model Post {
   updatedAt   DateTime     @updatedAt
 
   user        UserProfile  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  group       Group?       @relation(fields: [groupId], references: [id], onDelete: Cascade)
   likes       Like[]
   comments    Comment[]
+  @@index([groupId])
 }
 
 model Like {
