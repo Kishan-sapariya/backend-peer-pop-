@@ -5,8 +5,6 @@ import jwt from "jsonwebtoken";
 import crypto from "crypto";
 
 const router = express.Router();
-
-// Simple in-memory state store (good enough for your case)
 const stateStore = new Map();
 
 router.get("/auth", (req, res) => {
@@ -19,9 +17,13 @@ router.get("/auth", (req, res) => {
   const state = crypto.randomUUID();
   stateStore.set(state, true);
 
+  // If user clicks "Try another account", we attach ?select=1
+  const forceSelect = req.query.select === "1";
+  const prompt = forceSelect ? "consent select_account" : "consent";
+
   const url = oauth2Client.generateAuthUrl({
     access_type: "offline",
-    prompt: "consent", // ensures refresh_token on first connect
+    prompt,
     scope: ["https://www.googleapis.com/auth/youtube.readonly"],
     state,
   });
@@ -33,13 +35,21 @@ router.get("/callback", async (req, res) => {
   const code = req.query.code;
   const state = req.query.state;
 
+  // State verification
   if (!stateStore.has(state)) {
-    return res.status(401).json({ message: "Invalid OAuth state" });
+    return res.redirect(
+      `${process.env.FRONTEND_URL}/onboarding/youtuber/error?reason=invalid_state`
+    );
   }
   stateStore.delete(state);
 
+  // Verify logged in user
   const token = req.cookies.token;
-  if (!token) return res.status(401).json({ message: "User not logged in" });
+  if (!token) {
+    return res.redirect(
+      `${process.env.FRONTEND_URL}/login?reason=not_logged_in`
+    );
+  }
 
   const decoded = jwt.verify(token, process.env.JWT_SECRET);
   const userId = decoded.id;
@@ -61,7 +71,13 @@ router.get("/callback", async (req, res) => {
     });
 
     const channel = response.data.items?.[0];
-    if (!channel) return res.status(404).json({ message: "No channel found" });
+
+    // ⛔ No YouTube channel → redirect to UI page
+    if (!channel) {
+      return res.redirect(
+        `${process.env.FRONTEND_URL}/onboarding/youtuber/no-channel`
+      );
+    }
 
     const { id: channelId, statistics, snippet } = channel;
 
@@ -82,7 +98,7 @@ router.get("/callback", async (req, res) => {
       channelAge: monthsOld,
     };
 
-    // Store tokens (refresh token only matters for cron updates)
+    // Store OAuth tokens
     await prisma.youTubeAuth.upsert({
       where: { userProfileId: userId },
       update: {
@@ -92,7 +108,7 @@ router.get("/callback", async (req, res) => {
           ? new Date(tokens.expiry_date)
           : undefined,
         tokenType: tokens.token_type,
-        googleId: channelId, // <-- correct unique id
+        googleId: channelId,
       },
       create: {
         userProfileId: userId,
@@ -106,20 +122,19 @@ router.get("/callback", async (req, res) => {
       },
     });
 
-    // Store Stats
+    // Store stats
     await prisma.youTubeStats.upsert({
       where: { userProfileId: userId },
       update: { stats: youtubeData },
-      create: {
-        userProfileId: userId,
-        stats: youtubeData,
-      },
+      create: { userProfileId: userId, stats: youtubeData },
     });
 
-    res.redirect(`${process.env.FRONTEND_URL}/onboarding/youtuber`);
+    return res.redirect(`${process.env.FRONTEND_URL}/onboarding/youtuber`);
   } catch (err) {
     console.error("YouTube OAuth failed:", err);
-    res.status(500).json({ message: "YouTube connection failed" });
+    return res.redirect(
+      `${process.env.FRONTEND_URL}/onboarding/youtuber/error?reason=oauth_failed`
+    );
   }
 });
 
