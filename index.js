@@ -21,6 +21,7 @@ import feedsRoutes from "./routes/feedsRoute.js";
 import groupRoutes from "./routes/groupRoute.js";
 import accountsRoutes from "./routes/accountRoute.js";
 import businessRoutes from "./routes/businessRoute.js";
+import waitlistRoutes from "./routes/waitlistRoute.js";
 import adminRoutes from "./routes/adminRoute.js";
 import passport from "./config/passport.js";
 import "./cron/updateYoutubeStats.js";
@@ -65,6 +66,7 @@ app.use("/api/account", accountsRoutes);
 app.use("/api/business", businessRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/group", groupRoutes);
+app.use("/api/waitlist",waitlistRoutes)
 
 const server = createServer(app);
 

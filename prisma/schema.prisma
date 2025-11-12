@@ -45,6 +45,11 @@ enum BusinessStatus {
   REJECTED  
 }
 
+enum waitlistRole{
+  CREATOR
+  COMPANY
+}
+
 enum NotificationType {
   CONNECTION_REQUEST
   CONNECTION_ACCEPTED
@@ -145,6 +150,14 @@ model GroupMember {
   @@index([userId])
 }
 
+model Waitlist {
+  id           String       @id @default(uuid())
+  name         String
+  email        String       @unique
+  role         waitlistRole
+  status       String       @default("PENDING")
+  createdAt    DateTime     @default(now())
+}
 
 model Connection {
   id           String           @id @default(uuid())

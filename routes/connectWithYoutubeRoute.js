@@ -72,7 +72,6 @@ router.get("/callback", async (req, res) => {
 
     const channel = response.data.items?.[0];
 
-    // ⛔ No YouTube channel → redirect to UI page
     if (!channel) {
       return res.redirect(
         `${process.env.FRONTEND_URL}/onboarding/youtuber/no-channel`
@@ -98,7 +97,6 @@ router.get("/callback", async (req, res) => {
       channelAge: monthsOld,
     };
 
-    // Store OAuth tokens
     await prisma.youTubeAuth.upsert({
       where: { userProfileId: userId },
       update: {
@@ -122,14 +120,15 @@ router.get("/callback", async (req, res) => {
       },
     });
 
-    // Store stats
     await prisma.youTubeStats.upsert({
       where: { userProfileId: userId },
       update: { stats: youtubeData },
       create: { userProfileId: userId, stats: youtubeData },
     });
 
-    return res.redirect(`${process.env.FRONTEND_URL}/onboarding/youtuber`);
+    return res.redirect(
+      `${process.env.FRONTEND_URL}/onboarding/youtuber?connected=1`
+    );
   } catch (err) {
     console.error("YouTube OAuth failed:", err);
     return res.redirect(
