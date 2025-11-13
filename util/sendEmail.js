@@ -6,6 +6,8 @@ brevo.setApiKey(
   process.env.BREVO_API_KEY
 );
 
+console.log(process.env.BREVO_API_KEY);
+
 export const sendOTP = async (email, otp) => {
   try {
     const sendSmtpEmail = {
