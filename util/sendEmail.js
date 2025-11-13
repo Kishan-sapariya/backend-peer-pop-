@@ -8,6 +8,31 @@ brevo.setApiKey(
 
 console.log(process.env.BREVO_API_KEY);
 
+function logBrevoError(error) {
+  console.error("\n ===== BREVO ERROR DEBUG ===== ");
+
+  // Generic message
+  console.error("Message:", error.message);
+
+  // axios-style response object (Brevo SDK uses axios under the hood)
+  if (error.response) {
+    console.error("Status:", error.response.status);
+    console.error("Status Text:", error.response.statusText);
+    console.error("Headers:", error.response.headers);
+    console.error("Data:", JSON.stringify(error.response.data, null, 2));
+  }
+
+  // Special Brevo error fields
+  if (error.body) {
+    console.error("Body:", error.body);
+  }
+
+  // Raw error dump
+  console.error("Full Error Object:", error);
+
+  console.error(" ===== END BREVO ERROR DEBUG ===== \n");
+}
+
 export const sendOTP = async (email, otp) => {
   try {
     const sendSmtpEmail = {
@@ -44,6 +69,7 @@ export const sendOTP = async (email, otp) => {
     const result = await brevo.sendTransacEmail(sendSmtpEmail);
     return { success: true, messageId: result.messageId };
   } catch (error) {
+    logBrevoError(error);
     console.error("❌ Email sending failed:", error.message || error);
     throw new Error("Email delivery failed - please try again later");
   }
@@ -98,6 +124,7 @@ Stay tuned for updates!`,
     const result = await brevo.sendTransacEmail(sendSmtpEmail);
     return { success: true, messageId: result.messageId };
   } catch (error) {
+    logBrevoError(error);
     console.error("❌ Waitlist email failed:", error.message || error);
     return { success: false, error: "Email send failed" };
   }
