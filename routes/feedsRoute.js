@@ -7,6 +7,7 @@ import {
   deletePost,
   getFeedPosts,
   getMyPosts,
+  getPostById,
   getPostForMyPeers,
   getSuggestedUsers,
   getUserDetailsForFeed,
@@ -39,6 +40,7 @@ router.delete(
   protectedRoute,
   deleteComment
 );
+router.get("/posts/:postId", protectedRoute, getPostById);
 
 router.get("/get-suggested-users", protectedRoute, getSuggestedUsers);
 export default router;

@@ -639,3 +639,99 @@ export const getSuggestedUsers = async (req, res) => {
     res.status(500).json({ message: "Failed to fetch suggested users" });
   }
 };
+
+export const getPostById = async (req, res) => {
+  try {
+    const { id: userId } = req.user;
+    const { postId } = req.params;
+
+    if (!userId) {
+      return res.status(403).json({ success: false, message: "Login required" });
+    }
+    if (!postId) {
+      return res.status(404).json({ success: false, message: "Post id is required" });
+    }
+
+    const connections = await prisma.connection.findMany({
+      where: {
+        OR: [
+          { senderId: userId, status: "ACCEPTED" },
+          { receiverId: userId, status: "ACCEPTED" },
+        ],
+      },
+      select: {
+        senderId: true,
+        receiverId: true,
+      },
+    });
+
+    const connectedUserIds = connections.map((c) =>
+      c.senderId === userId ? c.receiverId : c.senderId
+    );
+
+    const post = await prisma.post.findFirst({
+      where: {
+        id: postId,
+        OR: [
+          { user: { visibility: "PUBLIC" } },
+          { userId },
+          {
+            user: { visibility: "PRIVATE" },
+            userId: { in: connectedUserIds },
+          },
+        ],
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            username: true,
+            image: true,
+            visibility: true,
+            creatorProfile: {
+              select: {
+                creatorType: true,
+              },
+            },
+          },
+        },
+        _count: {
+          select: { comments: true, likes: true },
+        },
+        likes: {
+          where: { userId },
+          select: { id: true },
+        },
+        comments: {
+          include: {
+            user: { select: { id: true, username: true, image: true } },
+          },
+        },
+      },
+    });
+
+    if (!post) {
+      return res.status(404).json({ success: false, message: "Post not found or access denied" });
+    }
+
+    const formattedPost = {
+      ...post,
+      likesCount: post._count.likes,
+      likedByMe: post.likes.length > 0,
+      user: {
+        ...post.user,
+        creatorType: post.user.creatorProfile?.creatorType,
+        creatorProfile: undefined, 
+      },
+    };
+    console.log(formattedPost)
+
+    res.status(200).json({
+      success: true,
+      post: formattedPost,
+    });
+  } catch (error) {
+    console.error("Get Post By ID Error:", error);
+    res.status(500).json({ success: false, message: "Failed to fetch post" });
+  }
+};
