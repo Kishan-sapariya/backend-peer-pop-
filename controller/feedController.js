@@ -724,7 +724,6 @@ export const getPostById = async (req, res) => {
         creatorProfile: undefined, 
       },
     };
-    console.log(formattedPost)
 
     res.status(200).json({
       success: true,
