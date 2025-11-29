@@ -410,7 +410,6 @@ export async function searchUsers(req, res) {
     const OR = [];
     const AND = [];
 
-    // 🔎 Search by q (including creator types)
     if (q && q.trim()) {
       OR.push(
         { username: { startsWith: q, mode: "insensitive" } },
@@ -468,7 +467,6 @@ export async function searchUsers(req, res) {
       }
     }
 
-    // 🔎 Filter by creatorType 
     if (creatorType) {
       const types = Array.isArray(creatorType)
         ? creatorType
@@ -492,7 +490,6 @@ export async function searchUsers(req, res) {
       AND.push({
         OR: locations.map((loc) => ({
           OR: [
-            // Search in state
             {
               creatorProfile: {
                 is: {
@@ -516,7 +513,6 @@ export async function searchUsers(req, res) {
                 },
               },
             },
-            // Search in customCity
             {
               creatorProfile: {
                 is: {
@@ -533,7 +529,6 @@ export async function searchUsers(req, res) {
       });
     }
 
-    // Final WHERE
     const where = {};
     if (OR.length) where.OR = OR;
     if (AND.length) where.AND = AND;

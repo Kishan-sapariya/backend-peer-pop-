@@ -1,8 +1,5 @@
 import prisma from "../util/prisma.js";
 
-/**
- * ✅ Fetch all businesses with documents for admin review
- */
 export const getBusinessesForVerification = async (req, res) => {
   try {
     const businesses = await prisma.businessProfile.findMany({
@@ -17,7 +14,7 @@ export const getBusinessesForVerification = async (req, res) => {
         panNumber: true,
         gstCertificateUrl: true,
         panDocumentUrl: true,
-        status: true, // enum: PENDING | VERIFIED | REJECTED
+        status: true, 
         rejectionReason: true,
         lastReviewedAt: true,
         userProfile: {
@@ -42,14 +39,11 @@ export const getBusinessesForVerification = async (req, res) => {
   }
 };
 
-/**
- * ✅ Update business status (VERIFY | UNVERIFY | REJECT)
- */
+
 export const updateBusinessStatus = async (req, res) => {
   try {
     const { businessId } = req.params;
     const { action, rejectionReason } = req.body;
-    // action: "VERIFY" | "UNVERIFY" | "REJECT"
 
     if (!businessId) {
       return res.status(400).json({ message: "Business ID is required" });
@@ -118,11 +112,10 @@ export const updateBusinessStatus = async (req, res) => {
       return res.status(400).json({ message: "Invalid action" });
     }
 
-    // ✅ Notify business owner
     await prisma.notification.create({
       data: {
-        senderId: req.user.id, // admin
-        receiverId: business.userProfileId, // business owner
+        senderId: req.user.id, 
+        receiverId: business.userProfileId, 
         type: notificationType,
         message: notificationMessage,
       },

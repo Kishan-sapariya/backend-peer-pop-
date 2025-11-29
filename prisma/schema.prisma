@@ -125,7 +125,7 @@ model Group {
   name         String       @unique
   description  String?
   image        String?      
-  joinType     GroupJoinType @default(ANYONE_CAN_JOIN)
+  joinType     GroupJoinType 
   adminId      String
 
   admin        UserProfile   @relation("UserGroupsAdmin", fields: [adminId], references: [id], onDelete: Cascade)
@@ -333,7 +333,7 @@ model Post {
   id          String       @id @default(uuid())
   userId      String
   groupId     String?
-  category    PostCategory
+  category    PostCategory?
   customLabel String?
   description String?
   hashtags    String[]
