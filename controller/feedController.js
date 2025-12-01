@@ -188,7 +188,7 @@ export const getMyPosts = async (req, res) => {
       take: parseInt(limit),
       skip: cursor ? 1 : 0,
       cursor: cursor ? { id: cursor } : undefined,
-      where: { userId: profileId },
+      where: { userId: profileId, groupId: null },
       include: {
         user: {
           select: {
@@ -266,11 +266,12 @@ export const getFeedPosts = async (req, res) => {
     );
 
     const posts = await prisma.post.findMany({
-      take: parseInt(limit),
+      take: parseInt(limit, 10),
       skip: cursor ? 1 : 0,
       cursor: cursor ? { id: cursor } : undefined,
       orderBy: { createdAt: "desc" },
       where: {
+        groupId: null,
         OR: [
           { user: { visibility: "PUBLIC" } },
           { userId },
@@ -397,7 +398,7 @@ export const getPostForMyPeers = async (req, res) => {
     }
 
     const posts = await prisma.post.findMany({
-      where: { userId: { in: peerIds } },
+      where: { userId: { in: peerIds }, groupId: null },
       take: parseInt(limit),
       skip: cursor ? 1 : 0,
       cursor: cursor ? { id: cursor } : undefined,
@@ -646,10 +647,14 @@ export const getPostById = async (req, res) => {
     const { postId } = req.params;
 
     if (!userId) {
-      return res.status(403).json({ success: false, message: "Login required" });
+      return res
+        .status(403)
+        .json({ success: false, message: "Login required" });
     }
     if (!postId) {
-      return res.status(404).json({ success: false, message: "Post id is required" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Post id is required" });
     }
 
     const connections = await prisma.connection.findMany({
@@ -711,7 +716,9 @@ export const getPostById = async (req, res) => {
     });
 
     if (!post) {
-      return res.status(404).json({ success: false, message: "Post not found or access denied" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Post not found or access denied" });
     }
 
     const formattedPost = {
@@ -721,7 +728,7 @@ export const getPostById = async (req, res) => {
       user: {
         ...post.user,
         creatorType: post.user.creatorProfile?.creatorType,
-        creatorProfile: undefined, 
+        creatorProfile: undefined,
       },
     };
 
