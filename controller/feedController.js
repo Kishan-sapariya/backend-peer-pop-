@@ -536,6 +536,7 @@ export const addComment = async (req, res) => {
     res.status(500).json({ message: "Failed to comment on post" });
   }
 };
+
 export const deleteComment = async (req, res) => {
   const { id: userId } = req.user;
   const { postId, commentId } = req.params;

@@ -7,13 +7,15 @@ import {
   deleteGroup,
   deleteGroupComment,
   deleteGroupPost,
-  fetchFourGroups,
   fetchGroupById,
   fetchGroupPosts,
   fetchJoinedGroup,
+  fetchSuggestedGroups,
+  getJoinRequestsForGroup,
   joinGroup,
   leaveGroup,
   likeGroupPost,
+  respondToJoinRequest,
   updateGroup,
   uploadImage,
 } from "../controller/groupController.js";
@@ -47,7 +49,7 @@ router.delete(
 );
 router.delete("/:groupId/posts/:postId", protectedRoute, deleteGroupPost);
 
-router.get("/", protectedRoute, fetchFourGroups);
+router.get("/", protectedRoute, fetchSuggestedGroups);
 
 router.get("/joined-groups", protectedRoute, fetchJoinedGroup);
 
@@ -60,6 +62,14 @@ router.patch(
   protectedRoute,
   upload.single("image"),
   uploadImage
+);
+
+router.get("/:groupId/join-requests", protectedRoute, getJoinRequestsForGroup);
+
+router.post(
+  "/:groupId/join-requests/:requestId/decision",
+  protectedRoute,
+  respondToJoinRequest
 );
 
 router.get("/:groupId", protectedRoute, fetchGroupById);

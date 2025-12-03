@@ -174,44 +174,39 @@ export const uploadImage = async (req, res) => {
   }
 };
 
-export const fetchFourGroups = async (req, res) => {
+export const fetchSuggestedGroups = async (req, res) => {
   try {
-    const userId = req.user.id; 
-
-    const joined = await prisma.groupMember.findMany({
-      where: { userId },
-      select: { groupId: true },
-    });
-
-    const joinedIds = joined.map((j) => j.groupId);
-
-    const allAvailableGroups = await prisma.group.findMany({
-      where: {
-        id: { notIn: joinedIds },
-      },
-      select: { id: true },
-    });
-
-    const shuffled = allAvailableGroups
-      .sort(() => Math.random() - 0.5)
-      .slice(0, 3);
+    const userId = req.user.id;
 
     const groups = await prisma.group.findMany({
       where: {
-        id: { in: shuffled.map((g) => g.id) },
+        members: {
+          none: {
+            userId,
+          },
+        },
       },
       include: {
-        _count: { select: { members: true } },
+        _count: {
+          select: { members: true },
+        },
+        members: {
+          where: { userId },
+          select: { id: true },
+        },
+        joinRequests: {
+          where: { userId },
+          select: { status: true },
+        },
       },
     });
 
-    return res.status(200).json({
-      message: "Successfully fetched groups",
-      groups,
-    });
+    return res.status(200).json(groups);
   } catch (error) {
-    console.error(error);
-    return res.status(500).json({ message: error.message });
+    console.error("fetchSuggestedGroups error:", error);
+    return res
+      .status(500)
+      .json({ message: "Failed to fetch suggested groups" });
   }
 };
 
@@ -225,14 +220,25 @@ export const joinGroup = async (req, res) => {
     if (!groupId)
       return res.status(400).json({ message: "Group id not provided" });
 
-    const group = await prisma.group.findUnique({ where: { id: groupId } });
+    const group = await prisma.group.findUnique({
+      where: { id: groupId },
+      select: { id: true, joinType: true },
+    });
+
     if (!group) return res.status(404).json({ message: "Group not found" });
 
-    if (group.joinType === "INVITE_ONLY") {
-      return res.status(403).json({ message: "This group is invite only" });
-    }
+    const existingMember = await prisma.groupMember.findUnique({
+      where: {
+        groupId_userId: { groupId, userId },
+      },
+    });
 
-    try {
+    if (existingMember)
+      return res.status(409).json({
+        message: "User is already a member of this group",
+      });
+
+    if (group.joinType === "ANYONE_CAN_JOIN") {
       const membership = await prisma.groupMember.create({
         data: { groupId, userId },
       });
@@ -241,17 +247,197 @@ export const joinGroup = async (req, res) => {
         message: "Joined group successfully",
         membership,
       });
-    } catch (err) {
-      if (err.code === "P2002") {
-        return res
-          .status(409)
-          .json({ message: "User is already a member of this group" });
-      }
-      throw err;
     }
+    const existingRequest = await prisma.groupJoinRequest.findUnique({
+      where: {
+        groupId_userId: { groupId, userId },
+      },
+    });
+
+    if (existingRequest) {
+      if (existingRequest.status === "PENDING") {
+        return res.status(400).json({
+          message: "Join request already pending",
+        });
+      }
+
+      return res.status(400).json({
+        message: `Join request was already ${existingRequest.status.toLowerCase()}`,
+      });
+    }
+
+    const joinRequest = await prisma.groupJoinRequest.create({
+      data: {
+        groupId,
+        userId,
+        status: "PENDING",
+      },
+    });
+
+    return res.status(201).json({
+      message: "Join request submitted",
+      request: joinRequest,
+    });
   } catch (error) {
-    const status = error.status || 500;
-    return res.status(status).json({ message: error.message });
+    console.error("joinGroup error:", error);
+    return res
+      .status(500)
+      .json({ message: error.message || "Something went wrong" });
+  }
+};
+
+export const getJoinRequestsForGroup = async (req, res) => {
+  try {
+    const { id: userId } = req.user || {};
+    const { groupId } = req.params;
+    const { status = "PENDING" } = req.query;
+
+    if (!userId)
+      return res.status(401).json({ message: "Authentication required" });
+    if (!groupId)
+      return res.status(400).json({ message: "Group id not provided" });
+
+    const group = await prisma.group.findUnique({
+      where: { id: groupId },
+      select: { id: true, adminId: true },
+    });
+
+    if (!group) return res.status(404).json({ message: "Group not found" });
+
+    if (group.adminId !== userId)
+      return res
+        .status(403)
+        .json({ message: "Only group admin can view join requests" });
+
+    const requests = await prisma.groupJoinRequest.findMany({
+      where: {
+        groupId,
+        status,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            username: true,
+            image: true,
+          },
+        },
+      },
+      orderBy: { createdAt: "asc" },
+    });
+
+    return res.status(200).json({
+      message: "Join requests fetched successfully",
+      requests,
+    });
+  } catch (error) {
+    console.error("getJoinRequestsForGroup error:", error);
+    return res
+      .status(500)
+      .json({ message: error.message || "Something went wrong" });
+  }
+};
+
+export const respondToJoinRequest = async (req, res) => {
+  try {
+    const { id: adminId } = req.user || {};
+    const { groupId, requestId } = req.params;
+    const { action } = req.body;
+
+    if (!adminId)
+      return res.status(401).json({ message: "Authentication required" });
+    if (!groupId || !requestId)
+      return res.status(400).json({ message: "Invalid parameters" });
+
+    if (!["APPROVE", "REJECT"].includes(action))
+      return res.status(400).json({ message: "Invalid action" });
+
+    const group = await prisma.group.findUnique({
+      where: { id: groupId },
+      select: { id: true, adminId: true },
+    });
+
+    if (!group) return res.status(404).json({ message: "Group not found" });
+
+    if (group.adminId !== adminId)
+      return res
+        .status(403)
+        .json({ message: "Only group admin can respond to join requests" });
+
+    const joinRequest = await prisma.groupJoinRequest.findUnique({
+      where: { id: requestId },
+    });
+
+    if (!joinRequest)
+      return res.status(404).json({ message: "Join request not found" });
+
+    if (joinRequest.groupId !== groupId)
+      return res
+        .status(400)
+        .json({ message: "Request does not belong to this group" });
+
+    if (joinRequest.status !== "PENDING")
+      return res
+        .status(400)
+        .json({ message: "This request has already been processed" });
+
+    if (action === "REJECT") {
+      const updated = await prisma.groupJoinRequest.update({
+        where: { id: requestId },
+        data: {
+          status: "REJECTED",
+          respondedAt: new Date(),
+          responderId: adminId,
+        },
+      });
+
+      return res.status(200).json({
+        message: "Join request rejected",
+        request: updated,
+      });
+    }
+
+    const result = await prisma.$transaction(async (tx) => {
+      let membership = await tx.groupMember.findUnique({
+        where: {
+          groupId_userId: {
+            groupId,
+            userId: joinRequest.userId,
+          },
+        },
+      });
+
+      if (!membership) {
+        membership = await tx.groupMember.create({
+          data: {
+            groupId,
+            userId: joinRequest.userId,
+          },
+        });
+      }
+
+      const updatedRequest = await tx.groupJoinRequest.update({
+        where: { id: requestId },
+        data: {
+          status: "APPROVED",
+          respondedAt: new Date(),
+          responderId: adminId,
+        },
+      });
+
+      return { membership, updatedRequest };
+    });
+
+    return res.status(200).json({
+      message: "Join request approved",
+      membership: result.membership,
+      request: result.updatedRequest,
+    });
+  } catch (error) {
+    console.error("respondToJoinRequest error:", error);
+    return res
+      .status(500)
+      .json({ message: error.message || "Something went wrong" });
   }
 };
 
@@ -273,8 +459,8 @@ export const leaveGroup = async (req, res) => {
         .status(403)
         .json({ message: "Group owner cannot leave the group" });
 
-    const membership = await prisma.groupMember.findFirst({
-      where: { groupId, userId },
+    const membership = await prisma.groupMember.findUnique({
+      where: { groupId_userId: { groupId, userId } },
     });
 
     if (!membership)
@@ -284,6 +470,10 @@ export const leaveGroup = async (req, res) => {
 
     await prisma.groupMember.delete({
       where: { groupId_userId: { groupId, userId } },
+    });
+
+    await prisma.groupJoinRequest.deleteMany({
+      where: { groupId, userId },
     });
 
     return res.status(200).json({ message: "Left group successfully" });
@@ -337,6 +527,7 @@ export const fetchGroupById = async (req, res) => {
         description: true,
         image: true,
         joinType: true,
+        adminId: true,
         _count: { select: { members: true } },
       },
     });

@@ -77,6 +77,13 @@ enum GroupJoinType {
   ANYONE_CAN_JOIN
 }
 
+enum GroupJoinRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+
 model UserProfile {
   id                  String                @id @default(uuid())
   username            String                @unique
@@ -116,6 +123,8 @@ model UserProfile {
   otpExpiry           DateTime?
   createdAt           DateTime              @default(now())
   updatedAt           DateTime              @updatedAt
+  joinRequests       GroupJoinRequest[] @relation("JoinRequests")
+  joinRequestActions GroupJoinRequest[] @relation("JoinRequestResponses")
 
   @@index([visibility])
 }
@@ -131,6 +140,7 @@ model Group {
   admin        UserProfile   @relation("UserGroupsAdmin", fields: [adminId], references: [id], onDelete: Cascade)
   members      GroupMember[]
   posts        Post[]
+  joinRequests GroupJoinRequest[]
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
 }
@@ -149,6 +159,27 @@ model GroupMember {
   @@index([groupId])
   @@index([userId])
 }
+
+model GroupJoinRequest {
+  id          String                 @id @default(uuid())
+  groupId     String
+  userId      String
+  status      GroupJoinRequestStatus @default(PENDING)
+  createdAt   DateTime               @default(now())
+  respondedAt DateTime?
+  responderId String?
+
+  // RELATIONS
+  group     Group       @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user      UserProfile @relation("JoinRequests", fields: [userId], references: [id], onDelete: Cascade)
+  responder UserProfile? @relation("JoinRequestResponses", fields: [responderId], references: [id])
+
+  @@unique([groupId, userId])
+  @@index([groupId])
+  @@index([userId])
+}
+
+
 
 model Waitlist {
   id           String       @id @default(uuid())
