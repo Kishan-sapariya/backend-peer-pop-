@@ -77,6 +77,7 @@ const io = new Server(server, {
       "https://frontend-peer-pop-3f5g.vercel.app",
       "https://www.peerpop.in",
       "https://peerpop.in",
+      "http://147.93.31.39"
     ],
     methods: ["GET", "POST", "PATCH", "DELETE", "PUT"],
     allowedHeaders: ["Content-Type", "Authorization"],
