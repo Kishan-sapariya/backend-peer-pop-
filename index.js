@@ -37,11 +37,12 @@ app.use(
       "https://frontend-peer-pop-3f5g.vercel.app",
       "https://www.peerpop.in",
       "https://peerpop.in",
+      "http://147.93.31.39",
     ],
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
     allowedHeaders: ["Content-Type", "Authorization"],
-  })
+  }),
 );
 
 app.use(express.json());
@@ -66,7 +67,7 @@ app.use("/api/account", accountsRoutes);
 app.use("/api/business", businessRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/group", groupRoutes);
-app.use("/api/waitlist",waitlistRoutes)
+app.use("/api/waitlist", waitlistRoutes);
 
 const server = createServer(app);
 
@@ -77,7 +78,7 @@ const io = new Server(server, {
       "https://frontend-peer-pop-3f5g.vercel.app",
       "https://www.peerpop.in",
       "https://peerpop.in",
-      "http://147.93.31.39"
+      "http://147.93.31.39",
     ],
     methods: ["GET", "POST", "PATCH", "DELETE", "PUT"],
     allowedHeaders: ["Content-Type", "Authorization"],
@@ -89,7 +90,7 @@ io.on("connection", (socket) => {
   console.log(
     "🔌 Client connected:",
     socket.id,
-    socket.handshake.headers.origin
+    socket.handshake.headers.origin,
   );
 
   socket.on("join", (userId) => {
