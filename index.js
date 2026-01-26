@@ -33,14 +33,18 @@ const app = express();
 app.use(
   cors({
     origin: [
+	"http://peerpop.in",	
+"https://peerpop.in",
       "http://localhost:3000",
       "https://frontend-peer-pop-3f5g.vercel.app",
       "https://www.peerpop.in",
       "https://peerpop.in",
       "http://147.93.31.39",
+      "http://147.93.31.39",
+      "http://147.93.31.39:3000"
     ],
     credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
   }),
 );
@@ -48,6 +52,7 @@ app.use(
 app.use(express.json());
 app.use(cookieParser());
 app.use(passport.initialize());
+
 
 // routes
 app.use("/api/auth/", authRoutes);
@@ -113,3 +118,4 @@ server.listen(PORT, () => {
 });
 
 export { io };
+
