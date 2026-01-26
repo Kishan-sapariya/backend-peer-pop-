@@ -293,6 +293,84 @@ export const getMessages = async (req, res) => {
   }
 };
 
+// -------------------- GET PUBLIC USERS FOR NEW CHAT --------------------
+export const getPublicUsersForChat = async (req, res) => {
+  const { id: userId } = req.user;
+  const { search = "", limit = 20, cursor } = req.query;
+
+  try {
+    // Get user IDs who already have conversations with the current user
+    const existingConversations = await prisma.conversationParticipant.findMany({
+      where: { userId },
+      select: { conversationId: true },
+    });
+
+    const conversationIds = existingConversations.map((c) => c.conversationId);
+
+    const usersInConversations = await prisma.conversationParticipant.findMany({
+      where: {
+        conversationId: { in: conversationIds },
+        userId: { not: userId },
+      },
+      select: { userId: true },
+    });
+
+    const excludeUserIds = [
+      userId,
+      ...usersInConversations.map((u) => u.userId),
+    ];
+
+    // Fetch public users excluding current user and users with existing conversations
+    const users = await prisma.userProfile.findMany({
+      where: {
+        visibility: "PUBLIC",
+        id: { notIn: excludeUserIds },
+        ...(search && {
+          OR: [
+            { username: { contains: search, mode: "insensitive" } },
+            { firstName: { contains: search, mode: "insensitive" } },
+            { lastName: { contains: search, mode: "insensitive" } },
+          ],
+        }),
+      },
+      select: {
+        id: true,
+        username: true,
+        image: true,
+        firstName: true,
+        lastName: true,
+        role: true,
+        creatorProfile: {
+          select: {
+            creatorType: true,
+          },
+        },
+        businessProfile: {
+          select: {
+            companyName: true,
+            industry: true,
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+      take: parseInt(limit) + 1,
+      ...(cursor && { skip: 1, cursor: { id: cursor } }),
+    });
+
+    const hasMore = users.length > parseInt(limit);
+    const resultUsers = hasMore ? users.slice(0, -1) : users;
+
+    return res.status(200).json({
+      message: "Public users fetched",
+      users: resultUsers,
+      nextCursor: hasMore ? resultUsers[resultUsers.length - 1]?.id : null,
+    });
+  } catch (error) {
+    console.error("Error fetching public users:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
 // -------------------- UPLOAD ATTACHMENT --------------------
 export const uploadAttachment = async (req, res) => {
   try {

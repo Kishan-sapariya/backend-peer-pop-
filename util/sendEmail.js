@@ -11,7 +11,7 @@ export const sendOTP = async (email, otp) => {
     const sendSmtpEmail = {
       sender: {
         name: "Peer Pop",
-        email: "peerpopdevelopment@gmail.com",
+        email: "no-reply@peerpop.in",
       },
       to: [{ email }],
       subject: "Email Verification OTP - Peer Pop",

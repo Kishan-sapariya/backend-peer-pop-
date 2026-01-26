@@ -7,6 +7,7 @@ import {
   getMessages,
   sendMessages,
   uploadAttachment,
+  getPublicUsersForChat,
 } from "../controller/conversationController.js";
 import upload from "../config/multer.js";
 
@@ -16,6 +17,7 @@ const router = express.Router();
 router.post("/create", protectedRoute, createConversation);
 router.get("/get/:conversationId", protectedRoute, getConversation);
 router.get("/get/", protectedRoute, getAllConversations);
+router.get("/public-users", protectedRoute, getPublicUsersForChat);
 
 // messages routes
 router.post(
