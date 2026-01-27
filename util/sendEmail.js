@@ -95,52 +95,61 @@ export const sendOTP = async (email, otp) => {
 
 export const sendWaitlistConfirmationEmail = async (email, name, role) => {
   try {
-    const sendSmtpEmail = {
-      sender: {
-        name: "Peer Pop",
-        email: "peerpopdevelopment@gmail.com",
+    const res = await fetch(BREVO_URL, {
+      method: "POST",
+      headers: {
+        "api-key": BREVO_API_KEY,
+        "Content-Type": "application/json",
+        "accept": "application/json",
       },
-      to: [{ email }],
-      subject: "You're on the Peer Pop Waitlist 🎉",
-      htmlContent: `
-        <div style="font-family: Inter, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; background: #0a0a0a; border-radius: 12px;">
-          <div style="text-align: center; margin-bottom: 20px;">
-            <h1 style="color: #FFD43B; font-size: 26px; margin-bottom: 8px;">Welcome to Peer Pop ✨</h1>
-            <p style="color: #bbb; font-size: 15px;">Hey${
-              name ? ` ${name}` : ""
-            }, you’re officially on the waitlist!</p>
-          </div>
+      body: JSON.stringify({
+        sender: {
+          name: "Peer Pop",
+          email: "no-reply@peerpop.in",
+        },
+        to: [{ email }],
+        subject: "You're on the Peer Pop Waitlist!",
+        htmlContent: `
+          <div style="font-family: Inter, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; background: #0a0a0a; border-radius: 12px;">
+            <div style="text-align: center; margin-bottom: 20px;">
+              <h1 style="color: #FFD43B; font-size: 26px; margin-bottom: 8px;">Welcome to Peer Pop</h1>
+              <p style="color: #bbb; font-size: 15px;">Hey${
+                name ? ` ${name}` : ""
+              }, you're officially on the waitlist!</p>
+            </div>
 
-          <div style="background: linear-gradient(135deg, #FACC15 0%, #EAB308 100%);
-                      padding: 24px; border-radius: 10px; color: #111; text-align: center;">
-            <h2 style="margin: 0 0 10px 0; font-size: 20px;">${
-              role === "BRAND" ? "For Brands" : "For Creators"
-            } like you</h2>
-            <p style="margin: 0; font-size: 15px; line-height: 1.6;">
-              You’ve been added to the early access waitlist.  
-              We’ll notify you the moment registrations open so you can secure your spot first.
-            </p>
-          </div>
+            <div style="background: linear-gradient(135deg, #FACC15 0%, #EAB308 100%);
+                        padding: 24px; border-radius: 10px; color: #111; text-align: center;">
+              <h2 style="margin: 0 0 10px 0; font-size: 20px;">${
+                role === "BRAND" ? "For Brands" : "For Creators"
+              } like you</h2>
+              <p style="margin: 0; font-size: 15px; line-height: 1.6;">
+                You've been added to the early access waitlist.
+                We'll notify you the moment registrations open so you can secure your spot first.
+              </p>
+            </div>
 
-          <div style="margin-top: 28px; text-align: center;">
-            <p style="color: #aaa; font-size: 14px;">Stay tuned for updates from <strong>Peer Pop</strong>.<br/>
-            Follow us on social to stay ahead of launch announcements!</p>
-          </div>
+            <div style="margin-top: 28px; text-align: center;">
+              <p style="color: #aaa; font-size: 14px;">Stay tuned for updates from <strong>Peer Pop</strong>.<br/>
+              Follow us on social to stay ahead of launch announcements!</p>
+            </div>
 
-          <div style="margin-top: 30px; text-align: center; color: #555; font-size: 12px;">
-            <p>If you didn’t request this, you can ignore this email.</p>
+            <div style="margin-top: 30px; text-align: center; color: #555; font-size: 12px;">
+              <p>If you didn't request this, you can ignore this email.</p>
+            </div>
           </div>
-        </div>
-      `,
-      textContent: `Hey${
-        name ? ` ${name}` : ""
-      }! You’re officially on the Peer Pop waitlist.
-We’ll notify you as soon as registration opens.
-Stay tuned for updates!`,
-    };
+        `,
+      }),
+    });
 
-    const result = await brevo.sendTransacEmail(sendSmtpEmail);
-    return { success: true, messageId: result.messageId };
+    const data = await res.json();
+
+    if (!res.ok) {
+      console.error("❌ Brevo API error:", data);
+      throw new Error("Brevo API rejected request");
+    }
+
+    return { success: true, messageId: data.messageId };
   } catch (error) {
     console.error("❌ Waitlist email failed:", error.message || error);
     return { success: false, error: "Email send failed" };
