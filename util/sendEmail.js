@@ -1,10 +1,7 @@
-import Brevo from "@getbrevo/brevo";
+import fetch from "node-fetch";
 
-const brevo = new Brevo.TransactionalEmailsApi();
-brevo.setApiKey(
-  Brevo.TransactionalEmailsApiApiKeys.apiKey,
-  process.env.BREVO_API_KEY
-);
+const BREVO_API_KEY = process.env.BREVO_API_KEY;
+const BREVO_URL = "https://api.brevo.com/v3/smtp/email";
 
 export const sendOTP = async (email, otp) => {
   try {
@@ -12,10 +9,21 @@ export const sendOTP = async (email, otp) => {
       sender: {
         name: "Peer Pop",
         email: "no-reply@peerpop.in",
+    const res = await fetch(BREVO_URL, {
+      method: "POST",
+      headers: {
+        "api-key": BREVO_API_KEY,
+        "Content-Type": "application/json",
+        "accept": "application/json",
       },
-      to: [{ email }],
-      subject: "Email Verification OTP - Peer Pop",
-      htmlContent: `
+      body: JSON.stringify({
+        sender: {
+          name: "Peer Pop",
+          email: "no-reply@peerpop.in",
+        },
+        to: [{ email }],
+        subject: "Email Verification OTP - Peer Pop",
+	 htmlContent: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
           <div style="text-align: center; margin-bottom: 30px;">
             <h1 style="color: #333; margin: 0;">Peer Pop</h1>
@@ -35,15 +43,21 @@ export const sendOTP = async (email, otp) => {
             <p style="color: #999; font-size: 12px;">This is an automated message, please do not reply.</p>
           </div>
         </div>
-      `,
-      textContent: `Your Peer Pop verification code is: ${otp}\n\nThis code expires in 10 minutes.\n\nIf you didn't request this verification, please ignore this email.`,
-    };
+      `,        
+      }),
+    });
 
-    const result = await brevo.sendTransacEmail(sendSmtpEmail);
-    return { success: true, messageId: result.messageId };
+    const data = await res.json();
+
+    if (!res.ok) {
+      console.error("❌ Brevo API error:", data);
+      throw new Error("Brevo API rejected request");
+    }
+
+    return { success: true, messageId: data.messageId };
   } catch (error) {
-    console.error("❌ Email sending failed:", error.message || error);
-    throw new Error("Email delivery failed - please try again later");
+    console.error("❌ Email sending failed:", error);
+    throw new Error("Email delivery failed");
   }
 };
 
