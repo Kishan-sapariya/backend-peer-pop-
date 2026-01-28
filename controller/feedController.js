@@ -5,6 +5,7 @@ import cloudinary, {
 } from "../config/cloudinary.js";
 import prisma from "../util/prisma.js";
 import { calculateProfileCompletion } from "../util/profileConfig.js";
+import { io } from "../index.js";
 
 export const getUserDetailsForFeed = async (req, res) => {
   const { id: userId } = req.user;
@@ -482,6 +483,35 @@ export const toggelLike = async (req, res) => {
         where: { postId: post.id },
       });
 
+      // Create notification for post owner (not for own posts)
+      if (post.userId !== userId) {
+        const liker = await prisma.userProfile.findUnique({
+          where: { id: userId },
+          select: { id: true, username: true, image: true },
+        });
+
+        const notification = await prisma.notification.create({
+          data: {
+            type: "POST_LIKE",
+            senderId: userId,
+            receiverId: post.userId,
+            message: `${liker.username} liked your post`,
+          },
+          include: {
+            sender: { select: { id: true, username: true, image: true } },
+          },
+        });
+
+        const unreadCount = await prisma.notification.count({
+          where: { receiverId: post.userId, isRead: false },
+        });
+
+        io.to(post.userId).emit("newNotification", {
+          notification,
+          unreadCount,
+        });
+      }
+
       return res.status(201).json({
         message: "Post liked",
         likesCount,
@@ -525,6 +555,35 @@ export const addComment = async (req, res) => {
     });
 
     const commentsCount = await prisma.comment.count({ where: { postId } });
+
+    // Create notification for post owner (not for own posts)
+    if (post.userId !== userId) {
+      const commenter = await prisma.userProfile.findUnique({
+        where: { id: userId },
+        select: { id: true, username: true, image: true },
+      });
+
+      const notification = await prisma.notification.create({
+        data: {
+          type: "POST_COMMENT",
+          senderId: userId,
+          receiverId: post.userId,
+          message: `${commenter.username} commented on your post`,
+        },
+        include: {
+          sender: { select: { id: true, username: true, image: true } },
+        },
+      });
+
+      const unreadCount = await prisma.notification.count({
+        where: { receiverId: post.userId, isRead: false },
+      });
+
+      io.to(post.userId).emit("newNotification", {
+        notification,
+        unreadCount,
+      });
+    }
 
     return res.status(201).json({
       message: "Comment added",
