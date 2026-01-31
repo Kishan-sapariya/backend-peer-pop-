@@ -1,5 +1,113 @@
 import prisma from "../util/prisma.js";
 
+// Get all waitlist entries
+export const getWaitlist = async (req, res) => {
+  try {
+    const { status, role, search, page = 1, limit = 20 } = req.query;
+
+    const where = {};
+
+    if (status) {
+      where.status = status;
+    }
+
+    if (role) {
+      where.role = role;
+    }
+
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: "insensitive" } },
+        { email: { contains: search, mode: "insensitive" } },
+      ];
+    }
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const take = parseInt(limit);
+
+    const [waitlist, total] = await Promise.all([
+      prisma.waitlist.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        skip,
+        take,
+      }),
+      prisma.waitlist.count({ where }),
+    ]);
+
+    return res.status(200).json({
+      success: true,
+      waitlist,
+      pagination: {
+        total,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        totalPages: Math.ceil(total / parseInt(limit)),
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching waitlist:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+    });
+  }
+};
+
+// Update waitlist entry status
+export const updateWaitlistStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    if (!id || !status) {
+      return res.status(400).json({
+        success: false,
+        message: "ID and status are required",
+      });
+    }
+
+    const updated = await prisma.waitlist.update({
+      where: { id },
+      data: { status },
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Status updated successfully",
+      data: updated,
+    });
+  } catch (error) {
+    console.error("Error updating waitlist status:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+    });
+  }
+};
+
+// Delete waitlist entry
+export const deleteWaitlistEntry = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    await prisma.waitlist.delete({
+      where: { id },
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Waitlist entry deleted successfully",
+    });
+  } catch (error) {
+    console.error("Error deleting waitlist entry:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+    });
+  }
+};
+
 export const getBusinessesForVerification = async (req, res) => {
   try {
     const businesses = await prisma.businessProfile.findMany({

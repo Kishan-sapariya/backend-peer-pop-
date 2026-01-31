@@ -13,7 +13,7 @@ export const addToWaitlist = async (req, res) => {
 
     name = name.trim();
     email = email.trim().toLowerCase();
-    role = role.toLowerCase() === "brand" ? "BRAND" : "CREATOR";
+    role = role.toLowerCase() === "creator" ? "CREATOR" : "COMPANY";
 
     const existing = await prisma.waitlist.findUnique({
       where: { email },
