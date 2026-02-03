@@ -35,7 +35,15 @@ export const createConversation = async (req, res) => {
       include: {
         participants: {
           include: {
-            user: { select: { id: true, username: true, image: true } },
+            user: {
+              select: {
+                id: true,
+                username: true,
+                image: true,
+                role: true,
+                creatorProfile: { select: { creatorType: true } },
+              }
+            },
           },
         },
       },
@@ -55,7 +63,15 @@ export const createConversation = async (req, res) => {
       include: {
         participants: {
           include: {
-            user: { select: { id: true, username: true, image: true } },
+            user: {
+              select: {
+                id: true,
+                username: true,
+                image: true,
+                role: true,
+                creatorProfile: { select: { creatorType: true } },
+              }
+            },
           },
         },
       },
@@ -86,7 +102,15 @@ export const getConversation = async (req, res) => {
       include: {
         participants: {
           include: {
-            user: { select: { id: true, username: true, image: true } },
+            user: {
+              select: {
+                id: true,
+                username: true,
+                image: true,
+                role: true,
+                creatorProfile: { select: { creatorType: true } },
+              }
+            },
           },
         },
         messages: {
@@ -135,7 +159,15 @@ export const getAllConversations = async (req, res) => {
           include: {
             participants: {
               include: {
-                user: { select: { id: true, username: true, image: true } },
+                user: {
+              select: {
+                id: true,
+                username: true,
+                image: true,
+                role: true,
+                creatorProfile: { select: { creatorType: true } },
+              }
+            },
               },
             },
             messages: {

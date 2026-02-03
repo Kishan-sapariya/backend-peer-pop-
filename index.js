@@ -91,6 +91,9 @@ const io = new Server(server, {
   },
 });
 
+// Track online users: Map<userId, Set<socketId>>
+const onlineUsers = new Map();
+
 io.on("connection", (socket) => {
   console.log(
     "🔌 Client connected:",
@@ -100,14 +103,82 @@ io.on("connection", (socket) => {
 
   socket.on("join", (userId) => {
     socket.join(userId);
-    console.log(`✅ User ${userId} joined their room`);
+    socket.userId = userId;
+
+    // Add user to online users
+    if (!onlineUsers.has(userId)) {
+      onlineUsers.set(userId, new Set());
+    }
+    onlineUsers.get(userId).add(socket.id);
+
+    // Broadcast online status to all connected clients
+    io.emit("userOnline", { userId });
+    console.log(`✅ User ${userId} joined their room (online)`);
   });
 
   socket.on("sendMessage", ({ receiverId, message }) => {
     io.to(receiverId).emit("receiveMessage", message);
   });
 
+  // Explicit leave event for immediate offline status (called on logout)
+  socket.on("leave", (userId) => {
+    if (userId && onlineUsers.has(userId)) {
+      onlineUsers.get(userId).delete(socket.id);
+
+      if (onlineUsers.get(userId).size === 0) {
+        onlineUsers.delete(userId);
+        io.emit("userOffline", { userId });
+        console.log(`👋 User ${userId} left (explicit leave)`);
+      }
+    }
+  });
+
+  // Typing indicators
+  socket.on("typing", ({ conversationId, receiverId, isTyping }) => {
+    console.log(`⌨️ User ${socket.userId} typing: ${isTyping} → to ${receiverId}`);
+    io.to(receiverId).emit("userTyping", {
+      conversationId,
+      userId: socket.userId,
+      isTyping
+    });
+  });
+
+  // Mark messages as read
+  socket.on("markAsRead", ({ conversationId, userId, lastReadAt }) => {
+    // Notify other participants that messages were read
+    socket.to(conversationId).emit("messagesRead", {
+      conversationId,
+      userId,
+      lastReadAt
+    });
+  });
+
+  // Get online status for specific users
+  socket.on("getOnlineUsers", (userIds, callback) => {
+    const onlineStatus = {};
+    if (Array.isArray(userIds)) {
+      userIds.forEach(userId => {
+        onlineStatus[userId] = onlineUsers.has(userId) && onlineUsers.get(userId).size > 0;
+      });
+    }
+    console.log(`📊 Online status check:`, onlineStatus);
+    if (typeof callback === 'function') {
+      callback(onlineStatus);
+    }
+  });
+
   socket.on("disconnect", () => {
+    const userId = socket.userId;
+    if (userId && onlineUsers.has(userId)) {
+      onlineUsers.get(userId).delete(socket.id);
+
+      // If user has no more active connections, mark as offline
+      if (onlineUsers.get(userId).size === 0) {
+        onlineUsers.delete(userId);
+        io.emit("userOffline", { userId });
+        console.log(`❌ User ${userId} is now offline`);
+      }
+    }
     console.log("❌ Client disconnected:", socket.id);
   });
 });
