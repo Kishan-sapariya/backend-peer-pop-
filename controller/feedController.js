@@ -666,7 +666,7 @@ export const getSuggestedUsers = async (req, res) => {
       where: {
         id: { notIn: Array.from(connectedIds) },
       },
-      take: 10,
+      take: 50,
       select: {
         id: true,
         username: true,
@@ -686,9 +686,13 @@ export const getSuggestedUsers = async (req, res) => {
       },
     });
 
-    const shuffled = suggestedUsers.sort(() => Math.random() - 0.5);
+    // Unbiased Fisher-Yates shuffle (sort(()=>Math.random()-0.5) is skewed).
+    for (let i = suggestedUsers.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [suggestedUsers[i], suggestedUsers[j]] = [suggestedUsers[j], suggestedUsers[i]];
+    }
 
-    const finalUsers = shuffled.slice(0, 3).map((user) => {
+    const finalUsers = suggestedUsers.slice(0, 3).map((user) => {
       let completion = { percentage: 0, category: "Rising" };
 
       if (user.creatorProfile) {

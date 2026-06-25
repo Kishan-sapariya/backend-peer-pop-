@@ -6,9 +6,18 @@
 import prisma from "../util/prisma.js";
 import bcrypt from "bcrypt";
 
-const EMAIL = "Ashish@gazonindia.com";
-const USERNAME = "Ashish Jain";
-const PASSWORD = "founder123";
+// Credentials come from env so no secret is committed to the repo.
+// Run as:  FOUNDER_SEED_EMAIL=... FOUNDER_SEED_PASSWORD=... node scripts/seedFounder.js
+const EMAIL = process.env.FOUNDER_SEED_EMAIL || "founder@peerpop.local";
+const USERNAME = process.env.FOUNDER_SEED_USERNAME || "founder";
+const PASSWORD = process.env.FOUNDER_SEED_PASSWORD;
+
+if (!PASSWORD) {
+  console.error(
+    "Set FOUNDER_SEED_PASSWORD (and optionally FOUNDER_SEED_EMAIL/USERNAME) before running."
+  );
+  process.exit(1);
+}
 
 async function main() {
   const hashedPassword = await bcrypt.hash(PASSWORD, 10);

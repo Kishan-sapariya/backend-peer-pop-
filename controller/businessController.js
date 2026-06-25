@@ -190,6 +190,20 @@ export const getBusinessProfileDetailsByUsername = async (req, res) => {
       },
     });
 
+    // Strip KYC/financial fields for anyone who isn't the owner.
+    const isOwner = req.user?.id === user?.id;
+    if (user?.businessProfile && !isOwner) {
+      const {
+        gstNumber,
+        panNumber,
+        gstCertificateUrl,
+        panDocumentUrl,
+        rejectionReason,
+        ...safeBusiness
+      } = user.businessProfile;
+      user.businessProfile = safeBusiness;
+    }
+
     return res.status(200).json({ success: true, user });
   } catch (error) {
     console.error(error);

@@ -69,8 +69,10 @@ export const getWaitlist = async (req, res) => {
       ];
     }
 
-    const skip = (parseInt(page) - 1) * parseInt(limit);
-    const take = parseInt(limit);
+    const safePage = Math.max(parseInt(page, 10) || 1, 1);
+    const safeLimit = Math.min(Math.max(parseInt(limit, 10) || 10, 1), 100);
+    const skip = (safePage - 1) * safeLimit;
+    const take = safeLimit;
 
     const [waitlist, total] = await Promise.all([
       prisma.waitlist.findMany({
@@ -331,8 +333,10 @@ export const getUsers = async (req, res) => {
       ];
     }
 
-    const skip = (parseInt(page) - 1) * parseInt(limit);
-    const take = parseInt(limit);
+    const safePage = Math.max(parseInt(page, 10) || 1, 1);
+    const safeLimit = Math.min(Math.max(parseInt(limit, 10) || 10, 1), 100);
+    const skip = (safePage - 1) * safeLimit;
+    const take = safeLimit;
 
     const [users, total] = await Promise.all([
       prisma.userProfile.findMany({

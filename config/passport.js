@@ -14,9 +14,15 @@ passport.use(
 
     async (accessToken, refreshToken, profile, done) => {
       try {
-        const email = profile.emails[0].value;
-        let user = await prisma.userProfile.findUnique({ where: { email } });
+        const emailEntry = profile.emails?.[0];
+        const email = emailEntry?.value;
 
+        // Require a Google-verified email.
+        if (!email || emailEntry.verified === false) {
+          return done(null, false, { message: "Google email not verified" });
+        }
+
+        let user = await prisma.userProfile.findUnique({ where: { email } });
         let isNewUser = false;
 
         if (!user) {
@@ -31,6 +37,21 @@ passport.use(
             },
           });
           isNewUser = true;
+        } else {
+          // An account with this email already exists. Only allow Google sign-in
+          // if it's the SAME Google account already linked — never auto-merge a
+          // local/password account by email alone (account-takeover vector).
+          if (user.googleId && user.googleId !== profile.id) {
+            return done(null, false, {
+              message: "This email is linked to a different Google account",
+            });
+          }
+          if (!user.googleId) {
+            return done(null, false, {
+              message:
+                "An account with this email already exists. Please log in with your password.",
+            });
+          }
         }
 
         done(null, { ...user, isNewUser });

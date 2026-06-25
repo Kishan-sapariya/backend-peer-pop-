@@ -21,7 +21,13 @@ router.get(
   }),
   (req, res) => {
     const user = req.user;
-    const token = generateToken(user);
+    // Sign only minimal claims — never the whole user row (the JWT payload is
+    // base64, not encrypted, so a full row would expose the password hash).
+    const token = generateToken({
+      id: user.id,
+      email: user.email,
+      role: user.role,
+    });
 
     setCookieToken(res, token);
 

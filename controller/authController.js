@@ -1,4 +1,5 @@
 import bcrypt from "bcrypt";
+import crypto from "crypto";
 import prisma from "../util/prisma.js";
 import { sendOTP } from "../util/sendEmail.js";
 import { generateToken, setCookieToken } from "../util/generateToken.js";
@@ -57,8 +58,9 @@ export const signup = async (req, res) => {
         .json({ message: "User already exists with this email" });
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const generateOtp = Math.floor(100000 + Math.random() * 900000).toString();
+    const hashedPassword = await bcrypt.hash(password, 12);
+    // Cryptographically secure 6-digit OTP (Math.random is predictable).
+    const generateOtp = crypto.randomInt(100000, 1000000).toString();
     const otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
 
     const newUser = await prisma.userProfile.create({

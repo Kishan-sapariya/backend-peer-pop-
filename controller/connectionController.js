@@ -77,6 +77,12 @@ export const sendConnectionReq = async (req, res) => {
       .status(201)
       .json({ message: "Connection request sent", request: result });
   } catch (error) {
+    // Unique-constraint race: a duplicate request slipped past the pre-check.
+    if (error?.code === "P2002") {
+      return res
+        .status(409)
+        .json({ message: "Connection request already exists" });
+    }
     console.error(error);
     return res.status(500).json({ message: "Internal server error" });
   }
@@ -203,10 +209,13 @@ export const acceptRequest = async (req, res) => {
     });
 
     const result = await prisma.$transaction(async (tx) => {
-      const updatedRequest = await tx.connection.update({
-        where: { id: connectionId },
+      // Conditional update: only one concurrent request can flip PENDING→ACCEPTED,
+      // so the notification/emit fire exactly once (no double-click duplicates).
+      const upd = await tx.connection.updateMany({
+        where: { id: connectionId, status: "PENDING" },
         data: { status: "ACCEPTED" },
       });
+      if (upd.count === 0) return null;
 
       await createNotification(tx, {
         type: "CONNECTION_ACCEPTED",
@@ -220,8 +229,12 @@ export const acceptRequest = async (req, res) => {
         connectionId,
       });
 
-      return updatedRequest;
+      return tx.connection.findUnique({ where: { id: connectionId } });
     });
+
+    if (!result) {
+      return res.status(200).json({ message: "Request already accepted" });
+    }
 
     return res.status(200).json({
       message: "Request Accepted",
@@ -274,10 +287,11 @@ export const rejectRequest = async (req, res) => {
     });
 
     const result = await prisma.$transaction(async (tx) => {
-      const updatedRequest = await tx.connection.update({
-        where: { id: connectionId },
+      const upd = await tx.connection.updateMany({
+        where: { id: connectionId, status: "PENDING" },
         data: { status: "REJECTED" },
       });
+      if (upd.count === 0) return null;
 
       await createNotification(tx, {
         type: "CONNECTION_REJECTED",
@@ -291,8 +305,12 @@ export const rejectRequest = async (req, res) => {
         connectionId,
       });
 
-      return updatedRequest;
+      return tx.connection.findUnique({ where: { id: connectionId } });
     });
+
+    if (!result) {
+      return res.status(200).json({ message: "Request already rejected" });
+    }
 
     return res
       .status(200)
