@@ -2,6 +2,8 @@ import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import dotenv from "dotenv";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
 import { createServer } from "http";
 import { Server } from "socket.io";
 
@@ -31,6 +33,13 @@ dotenv.config();
 
 const app = express();
 
+// Behind nginx on the VPS — trust the first proxy so client IPs (used for
+// rate-limit keys and secure cookies) come from X-Forwarded-For, not the proxy.
+app.set("trust proxy", 1);
+
+// Security headers
+app.use(helmet());
+
 app.use(
   cors({
     origin: [
@@ -54,6 +63,30 @@ app.use(express.json());
 app.use(cookieParser());
 app.use(passport.initialize());
 
+// Rate limiting (keyed by client IP via the trust-proxy setting above).
+// General cap protects every API route; the stricter auth cap guards the
+// brute-forceable credential endpoints (but NOT /me or /search, which are
+// hit constantly during normal use).
+const generalLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 300,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: "Too many requests, please slow down." },
+});
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: "Too many attempts, please try again later." },
+});
+
+app.use("/api", generalLimiter);
+app.use("/api/auth/login", authLimiter);
+app.use("/api/auth/signup", authLimiter);
+app.use("/api/auth/verify-otp", authLimiter);
 
 // routes
 app.use("/api/auth/", authRoutes);
@@ -75,6 +108,23 @@ app.use("/api/founder", founderRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/group", groupRoutes);
 app.use("/api/waitlist", waitlistRoutes);
+
+// Turn upload rejections (size / type) into clean JSON instead of a 500.
+app.use((err, req, res, next) => {
+  if (err?.name === "MulterError") {
+    if (err.code === "LIMIT_FILE_SIZE") {
+      const maxMb = Number(process.env.MAX_UPLOAD_MB) || 50;
+      return res
+        .status(413)
+        .json({ message: `File too large. Maximum size is ${maxMb}MB.` });
+    }
+    return res.status(400).json({ message: err.message });
+  }
+  if (typeof err?.message === "string" && err.message.startsWith("Unsupported file type")) {
+    return res.status(415).json({ message: err.message });
+  }
+  return next(err);
+});
 
 const server = createServer(app);
 
