@@ -315,6 +315,21 @@ export const uploadProfilePicture = async (req, res) => {
     const updatedUser = await prisma.userProfile.update({
       where: { id: userId },
       data: { image: uploadedImage.secure_url },
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        image: true,
+        coverImage: true,
+        role: true,
+        visibility: true,
+        isAdmin: true,
+        isFounder: true,
+        emailVerified: true,
+        firstName: true,
+        lastName: true,
+        createdAt: true,
+      },
     });
 
     res.status(200).json({
@@ -354,6 +369,21 @@ export const deleteProfilePicture = async (req, res) => {
     const updatedUser = await prisma.userProfile.update({
       where: { id: userId },
       data: { image: null },
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        image: true,
+        coverImage: true,
+        role: true,
+        visibility: true,
+        isAdmin: true,
+        isFounder: true,
+        emailVerified: true,
+        firstName: true,
+        lastName: true,
+        createdAt: true,
+      },
     });
 
     res.status(200).json({
@@ -396,6 +426,21 @@ export const uploadCoverImage = async (req, res) => {
     const updatedUser = await prisma.userProfile.update({
       where: { id: userId },
       data: { coverImage: uploadedImage.secure_url },
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        image: true,
+        coverImage: true,
+        role: true,
+        visibility: true,
+        isAdmin: true,
+        isFounder: true,
+        emailVerified: true,
+        firstName: true,
+        lastName: true,
+        createdAt: true,
+      },
     });
 
     res.status(200).json({

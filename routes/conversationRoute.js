@@ -22,6 +22,7 @@ router.get("/public-users", protectedRoute, getPublicUsersForChat);
 // messages routes
 router.post(
   "/upload-attachment",
+  protectedRoute,
   upload.single("file"),
   uploadAttachment
 );

@@ -213,7 +213,9 @@ export const getMyPosts = async (req, res) => {
           select: { id: true },
         },
         comments: {
-          include: { user: true },
+          include: {
+            user: { select: { id: true, username: true, image: true } },
+          },
         },
       },
       orderBy: {
