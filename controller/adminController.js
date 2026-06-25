@@ -1,5 +1,52 @@
 import prisma from "../util/prisma.js";
 
+/**
+ * Build a month-by-month timeline of signups from a list of records that each
+ * have a `createdAt`. Returns the last `months` buckets (oldest -> newest),
+ * each shaped { month: "Jan 2026", key: "2026-01", count }.
+ *
+ * Bucketing is done in JS (rather than SQL date_trunc) so it works identically
+ * across SQLite/Postgres/MySQL without dialect-specific date functions.
+ */
+const buildTimeline = (records, months = 6) => {
+  const now = new Date();
+  const buckets = [];
+  const indexByKey = {};
+
+  // Seed an ordered bucket for each of the last `months` months (incl. current)
+  for (let i = months - 1; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    indexByKey[key] = buckets.length;
+    buckets.push({
+      key,
+      month: d.toLocaleDateString("en-US", { month: "short", year: "numeric" }),
+      count: 0,
+    });
+  }
+
+  for (const rec of records) {
+    const d = new Date(rec.createdAt);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    if (key in indexByKey) buckets[indexByKey[key]].count += 1;
+  }
+
+  return buckets;
+};
+
+// Convert a Prisma groupBy result ([{ field, _count }]) into a plain object map
+const groupToMap = (rows, field) =>
+  rows.reduce((acc, row) => {
+    acc[row[field]] = row._count?._all ?? row._count ?? 0;
+    return acc;
+  }, {});
+
+// The earliest date that falls within the requested `months` window
+const windowStart = (months) => {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth() - (months - 1), 1);
+};
+
 // Get all waitlist entries
 export const getWaitlist = async (req, res) => {
   try {
@@ -236,5 +283,131 @@ export const updateBusinessStatus = async (req, res) => {
   } catch (error) {
     console.error("Error updating business status:", error);
     return res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+
+// Aggregated stats for the waitlist dashboard
+export const getWaitlistStats = async (req, res) => {
+  try {
+    const months = Math.min(Math.max(parseInt(req.query.months) || 6, 1), 24);
+
+    const [total, byRoleRows, byStatusRows, timelineRecords] = await Promise.all([
+      prisma.waitlist.count(),
+      prisma.waitlist.groupBy({ by: ["role"], _count: { _all: true } }),
+      prisma.waitlist.groupBy({ by: ["status"], _count: { _all: true } }),
+      prisma.waitlist.findMany({
+        where: { createdAt: { gte: windowStart(months) } },
+        select: { createdAt: true },
+      }),
+    ]);
+
+    return res.status(200).json({
+      success: true,
+      stats: {
+        total,
+        byRole: groupToMap(byRoleRows, "role"),
+        byStatus: groupToMap(byStatusRows, "status"),
+        timeline: buildTimeline(timelineRecords, months),
+        months,
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching waitlist stats:", error);
+    return res.status(500).json({ success: false, message: "Internal Server Error" });
+  }
+};
+
+// Paginated list of registered users (UserProfile)
+export const getUsers = async (req, res) => {
+  try {
+    const { role, search, page = 1, limit = 10 } = req.query;
+
+    const where = {};
+    if (role) where.role = role;
+    if (search) {
+      where.OR = [
+        { username: { contains: search, mode: "insensitive" } },
+        { email: { contains: search, mode: "insensitive" } },
+      ];
+    }
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const take = parseInt(limit);
+
+    const [users, total] = await Promise.all([
+      prisma.userProfile.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        skip,
+        take,
+        select: {
+          id: true,
+          username: true,
+          email: true,
+          image: true,
+          role: true,
+          isAdmin: true,
+          emailVerified: true,
+          createdAt: true,
+          businessProfile: { select: { status: true, companyName: true } },
+          creatorProfile: { select: { creatorType: true } },
+        },
+      }),
+      prisma.userProfile.count({ where }),
+    ]);
+
+    return res.status(200).json({
+      success: true,
+      users,
+      pagination: {
+        total,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        totalPages: Math.ceil(total / parseInt(limit)),
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching users:", error);
+    return res.status(500).json({ success: false, message: "Internal Server Error" });
+  }
+};
+
+// Aggregated stats for the registered-users dashboard
+export const getUserStats = async (req, res) => {
+  try {
+    const months = Math.min(Math.max(parseInt(req.query.months) || 6, 1), 24);
+
+    const [
+      total,
+      byRoleRows,
+      verifiedCount,
+      businessByStatusRows,
+      timelineRecords,
+    ] = await Promise.all([
+      prisma.userProfile.count(),
+      prisma.userProfile.groupBy({ by: ["role"], _count: { _all: true } }),
+      prisma.userProfile.count({ where: { emailVerified: true } }),
+      prisma.businessProfile.groupBy({ by: ["status"], _count: { _all: true } }),
+      prisma.userProfile.findMany({
+        where: { createdAt: { gte: windowStart(months) } },
+        select: { createdAt: true },
+      }),
+    ]);
+
+    return res.status(200).json({
+      success: true,
+      stats: {
+        total,
+        byRole: groupToMap(byRoleRows, "role"),
+        verified: verifiedCount,
+        unverified: total - verifiedCount,
+        businessByStatus: groupToMap(businessByStatusRows, "status"),
+        timeline: buildTimeline(timelineRecords, months),
+        months,
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching user stats:", error);
+    return res.status(500).json({ success: false, message: "Internal Server Error" });
   }
 };

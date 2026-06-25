@@ -7,9 +7,17 @@ import {
   deleteWaitlistEntry,
   getBusinessesForVerification,
   updateBusinessStatus,
+  getWaitlistStats,
+  getUsers,
+  getUserStats,
 } from "../controller/adminController.js";
 
 const router = express.Router();
+
+// Dashboard stats (protected + admin only)
+router.get("/waitlist/stats", protectedRoute, adminRoute, getWaitlistStats);
+router.get("/users/stats", protectedRoute, adminRoute, getUserStats);
+router.get("/users", protectedRoute, adminRoute, getUsers);
 
 // Waitlist routes (protected + admin only)
 router.get("/waitlist", protectedRoute, adminRoute, getWaitlist);
