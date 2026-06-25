@@ -347,6 +347,7 @@ export const getUsers = async (req, res) => {
           image: true,
           role: true,
           isAdmin: true,
+          isFounder: true,
           emailVerified: true,
           createdAt: true,
           businessProfile: { select: { status: true, companyName: true } },
@@ -368,6 +369,49 @@ export const getUsers = async (req, res) => {
     });
   } catch (error) {
     console.error("Error fetching users:", error);
+    return res.status(500).json({ success: false, message: "Internal Server Error" });
+  }
+};
+
+// Toggle the singleton founder flag on a user (admin only).
+// Enforces exactly one founder: setting a new one clears any existing founder.
+export const setFounder = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { isFounder } = req.body;
+
+    const target = await prisma.userProfile.findUnique({ where: { id } });
+    if (!target) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    if (isFounder) {
+      // Demote any current founder(s), then promote this user — atomically.
+      await prisma.$transaction([
+        prisma.userProfile.updateMany({
+          where: { isFounder: true, NOT: { id } },
+          data: { isFounder: false },
+        }),
+        prisma.userProfile.update({
+          where: { id },
+          data: { isFounder: true },
+        }),
+      ]);
+    } else {
+      await prisma.userProfile.update({
+        where: { id },
+        data: { isFounder: false },
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: isFounder
+        ? "User is now the platform founder"
+        : "Founder status removed",
+    });
+  } catch (error) {
+    console.error("Error setting founder:", error);
     return res.status(500).json({ success: false, message: "Internal Server Error" });
   }
 };

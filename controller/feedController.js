@@ -197,6 +197,7 @@ export const getMyPosts = async (req, res) => {
             username: true,
             image: true,
             visibility: true,
+            isFounder: true,
             creatorProfile: {
               select: {
                 creatorType: true,
@@ -289,6 +290,7 @@ export const getFeedPosts = async (req, res) => {
             username: true,
             image: true,
             visibility: true,
+            isFounder: true,
             creatorProfile: {
               select: {
                 creatorType: true,
@@ -411,6 +413,7 @@ export const getPostForMyPeers = async (req, res) => {
             username: true,
             image: true,
             visibility: true,
+            isFounder: true,
             creatorProfile: {
               select: {
                 creatorType: true,
@@ -666,10 +669,16 @@ export const getSuggestedUsers = async (req, res) => {
         id: true,
         username: true,
         image: true,
+        isFounder: true,
         creatorProfile: {
           select: {
             creatorType: true,
             data: true,
+          },
+        },
+        founderProfile: {
+          select: {
+            headline: true,
           },
         },
       },
@@ -690,6 +699,8 @@ export const getSuggestedUsers = async (req, res) => {
         username: user.username,
         image: user.image,
         creatorType: user.creatorProfile?.creatorType || null,
+        isFounder: user.isFounder || false,
+        headline: user.founderProfile?.headline || null,
         completion,
       };
     });
@@ -753,6 +764,7 @@ export const getPostById = async (req, res) => {
             username: true,
             image: true,
             visibility: true,
+            isFounder: true,
             creatorProfile: {
               select: {
                 creatorType: true,

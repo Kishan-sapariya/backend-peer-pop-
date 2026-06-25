@@ -270,6 +270,7 @@ export const getCurrentUser = async (req, res) => {
         role: user.role,
         companyName: user.businessProfile?.companyName,
         isAdmin: user.isAdmin,
+        isFounder: user.isFounder,
       },
     });
   } catch (error) {
@@ -543,6 +544,7 @@ export async function searchUsers(req, res) {
         id: true,
         username: true,
         image: true,
+        isFounder: true,
         creatorProfile: {
           select: {
             id: true,
@@ -557,6 +559,13 @@ export async function searchUsers(req, res) {
             industry: true,
             size: true,
             headquarters: true,
+          },
+        },
+        founderProfile: {
+          select: {
+            id: true,
+            headline: true,
+            location: true,
           },
         },
       },

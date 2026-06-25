@@ -1,11 +1,11 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
   previewFeatures = ["relationJoins"]
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 enum ConnectionStatus {
@@ -39,12 +39,12 @@ enum CreatorType {
 }
 
 enum BusinessStatus {
-  PENDING   
-  VERIFIED  
-  REJECTED  
+  PENDING
+  VERIFIED
+  REJECTED
 }
 
-enum waitlistRole{
+enum waitlistRole {
   CREATOR
   COMPANY
 }
@@ -84,46 +84,47 @@ enum GroupJoinRequestStatus {
   REJECTED
 }
 
-
 model UserProfile {
-  id                  String                @id @default(uuid())
-  username            String                @unique
-  email               String                @unique
-  password            String?
-  image               String?
-  coverImage          String?
-  googleId            String?               @unique
-  provider            String?
-  firstName           String?
-  lastName            String?
-  role                UserRole              @default(CREATOR)
-  isAdmin             Boolean               @default(false)
+  id         String   @id @default(uuid())
+  username   String   @unique
+  email      String   @unique
+  password   String?
+  image      String?
+  coverImage String?
+  googleId   String?  @unique
+  provider   String?
+  firstName  String?
+  lastName   String?
+  role       UserRole @default(CREATOR)
+  isAdmin    Boolean  @default(false)
+  isFounder  Boolean  @default(false)
 
-  creatorProfile      CreatorProfile?
-  businessProfile     BusinessProfile?
-  youtubeStats        YouTubeStats?
-  youTubeAuth         YouTubeAuth?
-  requestsSent        Connection[]          @relation("RequestSent")
-  requestsReceived    Connection[]          @relation("RequestReceived")
+  creatorProfile           CreatorProfile?
+  businessProfile          BusinessProfile?
+  founderProfile           FounderProfile?
+  youtubeStats             YouTubeStats?
+  youTubeAuth              YouTubeAuth?
+  requestsSent             Connection[]              @relation("RequestSent")
+  requestsReceived         Connection[]              @relation("RequestReceived")
   conversationParticipants ConversationParticipant[]
-  sentMessages        Message[]             @relation("UserMessages")
-  sentNotifications   Notification[]        @relation("SentNotifications")
-  receivedNotifications Notification[]      @relation("ReceivedNotifications")
+  sentMessages             Message[]                 @relation("UserMessages")
+  sentNotifications        Notification[]            @relation("SentNotifications")
+  receivedNotifications    Notification[]            @relation("ReceivedNotifications")
 
-  groupsAdmin         Group[]               @relation("UserGroupsAdmin")
-  groupMemberships    GroupMember[]         @relation("UserGroupMemberships")
+  groupsAdmin      Group[]       @relation("UserGroupsAdmin")
+  groupMemberships GroupMember[] @relation("UserGroupMemberships")
 
-  post                Post[]
-  comments            Comment[]
-  likes               Like[]
+  post     Post[]
+  comments Comment[]
+  likes    Like[]
 
-  emailVerified       Boolean               @default(false)
-  visibility          AccountVisibility     @default(PUBLIC)
+  emailVerified Boolean           @default(false)
+  visibility    AccountVisibility @default(PUBLIC)
 
-  otp                 String?
-  otpExpiry           DateTime?
-  createdAt           DateTime              @default(now())
-  updatedAt           DateTime              @updatedAt
+  otp                String?
+  otpExpiry          DateTime?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
   joinRequests       GroupJoinRequest[] @relation("JoinRequests")
   joinRequestActions GroupJoinRequest[] @relation("JoinRequestResponses")
 
@@ -131,30 +132,30 @@ model UserProfile {
 }
 
 model Group {
-  id           String       @id @default(uuid())
-  name         String       @unique
-  description  String?
-  image        String?      
-  joinType     GroupJoinType 
-  adminId      String
+  id          String        @id @default(uuid())
+  name        String        @unique
+  description String?
+  image       String?
+  joinType    GroupJoinType
+  adminId     String
 
-  admin        UserProfile   @relation("UserGroupsAdmin", fields: [adminId], references: [id], onDelete: Cascade)
+  admin        UserProfile        @relation("UserGroupsAdmin", fields: [adminId], references: [id], onDelete: Cascade)
   members      GroupMember[]
   posts        Post[]
   joinRequests GroupJoinRequest[]
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
 }
 
 model GroupMember {
-  id        String      @id @default(uuid())
-  groupId   String
-  userId    String
-  role      String       @default("MEMBER") 
-  joinedAt  DateTime     @default(now())
+  id       String   @id @default(uuid())
+  groupId  String
+  userId   String
+  role     String   @default("MEMBER")
+  joinedAt DateTime @default(now())
 
-  group     Group        @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  user      UserProfile  @relation("UserGroupMemberships", fields: [userId], references: [id], onDelete: Cascade)
+  group Group       @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user  UserProfile @relation("UserGroupMemberships", fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([groupId, userId])
   @@index([groupId])
@@ -171,8 +172,8 @@ model GroupJoinRequest {
   responderId String?
 
   // RELATIONS
-  group     Group       @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  user      UserProfile @relation("JoinRequests", fields: [userId], references: [id], onDelete: Cascade)
+  group     Group        @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user      UserProfile  @relation("JoinRequests", fields: [userId], references: [id], onDelete: Cascade)
   responder UserProfile? @relation("JoinRequestResponses", fields: [responderId], references: [id])
 
   @@unique([groupId, userId])
@@ -180,94 +181,128 @@ model GroupJoinRequest {
   @@index([userId])
 }
 
-
-
 model Waitlist {
-  id           String       @id @default(uuid())
-  name         String
-  email        String       @unique
-  role         waitlistRole
-  status       String       @default("PENDING")
-  createdAt    DateTime     @default(now())
+  id        String       @id @default(uuid())
+  name      String
+  email     String       @unique
+  role      waitlistRole
+  status    String       @default("PENDING")
+  createdAt DateTime     @default(now())
 }
 
 model Connection {
-  id           String           @id @default(uuid())
-  senderId     String
-  receiverId   String
-  status       ConnectionStatus @default(PENDING)
-  createdAt    DateTime         @default(now())
-  updatedAt    DateTime         @updatedAt
+  id         String           @id @default(uuid())
+  senderId   String
+  receiverId String
+  status     ConnectionStatus @default(PENDING)
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
 
-  sender       UserProfile      @relation("RequestSent", fields: [senderId], references: [id], onDelete: Cascade)
-  receiver     UserProfile      @relation("RequestReceived", fields: [receiverId], references: [id], onDelete: Cascade)
+  sender   UserProfile @relation("RequestSent", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver UserProfile @relation("RequestReceived", fields: [receiverId], references: [id], onDelete: Cascade)
 
   @@unique([senderId, receiverId])
 }
 
 model CreatorProfile {
-  id             String         @id @default(uuid())
-  userProfileId  String         @unique
-  creatorType    CreatorType
-  data           Json
-  recentContent  RecentContent[]
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
+  id            String          @id @default(uuid())
+  userProfileId String          @unique
+  creatorType   CreatorType
+  data          Json
+  recentContent RecentContent[]
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
 
-  userProfile    UserProfile    @relation(fields: [userProfileId], references: [id], onDelete: Cascade)
+  userProfile UserProfile @relation(fields: [userProfileId], references: [id], onDelete: Cascade)
 }
 
 model BusinessProfile {
-  id                  String   @id @default(uuid())
-  userProfileId       String   @unique
-  companyName         String?
-  website             String?
-  phone               String?
-  about               String?
+  id            String  @id @default(uuid())
+  userProfileId String  @unique
+  companyName   String?
+  website       String?
+  phone         String?
+  about         String?
 
   // Basic Info
-  industry            String?
-  size                String?
-  foundedYear         String?
-  supportEmail        String?
-  businessType        String?
+  industry     String?
+  size         String?
+  foundedYear  String?
+  supportEmail String?
+  businessType String?
 
   // Verification
-  isVerified          Boolean   @default(false)
-  status              BusinessStatus @default(PENDING)
-  rejectionReason     String?
-  lastReviewedAt      DateTime?
+  isVerified      Boolean        @default(false)
+  status          BusinessStatus @default(PENDING)
+  rejectionReason String?
+  lastReviewedAt  DateTime?
 
   // GST
-  gstNumber           String?
-  gstCertificateUrl   String?
+  gstNumber         String?
+  gstCertificateUrl String?
 
   // PAN
-  panNumber           String?
-  panDocumentUrl      String?
+  panNumber      String?
+  panDocumentUrl String?
 
   // Location
-  headquarters        String?
+  headquarters String?
 
-  services        Json?    
-  achievements    Json?
+  services     Json?
+  achievements Json?
 
   // Social
-  linkedinUrl         String?
-  linkedinFollowers   Int?
-  twitterUrl          String?
-  twitterFollowers    Int?
-  instagramUrl        String?
-  instagramFollowers  Int?
-  facebookUrl         String?
-  facebookFollowers   Int?
+  linkedinUrl        String?
+  linkedinFollowers  Int?
+  twitterUrl         String?
+  twitterFollowers   Int?
+  instagramUrl       String?
+  instagramFollowers Int?
+  facebookUrl        String?
+  facebookFollowers  Int?
 
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  userProfile         UserProfile @relation(fields: [userProfileId], references: [id], onDelete: Cascade)
+  userProfile UserProfile @relation(fields: [userProfileId], references: [id], onDelete: Cascade)
 }
 
+model FounderProfile {
+  id            String @id @default(uuid())
+  userProfileId String @unique
+
+  headline String?
+  bio      String?
+  location String?
+  website  String?
+
+  linkedinUrl  String?
+  twitterUrl   String?
+  instagramUrl String?
+  youtubeUrl   String?
+
+  milestones Json?
+
+  media FounderMedia[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userProfile UserProfile @relation(fields: [userProfileId], references: [id], onDelete: Cascade)
+}
+
+model FounderMedia {
+  id               String   @id @default(uuid())
+  founderProfileId String
+  type             String // "IMAGE" | "VIDEO"
+  url              String
+  caption          String?
+  createdAt        DateTime @default(now())
+
+  founderProfile FounderProfile @relation(fields: [founderProfileId], references: [id], onDelete: Cascade)
+
+  @@index([founderProfileId])
+}
 
 model YouTubeAuth {
   id            String    @id @default(uuid())
@@ -279,10 +314,10 @@ model YouTubeAuth {
   tokenType     String?
   googleId      String
 
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  userProfile   UserProfile @relation(fields: [userProfileId], references: [id], onDelete: Cascade)
+  userProfile UserProfile @relation(fields: [userProfileId], references: [id], onDelete: Cascade)
 }
 
 model YouTubeStats {
@@ -291,11 +326,11 @@ model YouTubeStats {
   stats         Json
   updatedAt     DateTime @updatedAt
 
-  userProfile   UserProfile @relation(fields: [userProfileId], references: [id], onDelete: Cascade)
+  userProfile UserProfile @relation(fields: [userProfileId], references: [id], onDelete: Cascade)
 }
 
 model RecentContent {
-  id               String       @id @default(uuid())
+  id               String      @id @default(uuid())
   creatorProfileId String
   contentType      ContentType
   title            String
@@ -304,29 +339,29 @@ model RecentContent {
   mediaUrls        String[]
   metrics          Json?
   metadata         Json?
-  isActive         Boolean      @default(true)
-  createdAt        DateTime     @default(now())
-  updatedAt        DateTime     @updatedAt
+  isActive         Boolean     @default(true)
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
 
-  creatorProfile   CreatorProfile @relation(fields: [creatorProfileId], references: [id], onDelete: Cascade)
+  creatorProfile CreatorProfile @relation(fields: [creatorProfileId], references: [id], onDelete: Cascade)
 
   @@index([creatorProfileId, contentType])
 }
 
 model Conversation {
-  id           String                  @id @default(uuid())
-  createdAt    DateTime                @default(now())
-  updatedAt    DateTime                @updatedAt
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   participants ConversationParticipant[]
   messages     Message[]
 }
 
 model ConversationParticipant {
-  id             String       @id @default(uuid())
+  id             String    @id @default(uuid())
   conversationId String
   userId         String
-   lastReadAt     DateTime?
+  lastReadAt     DateTime?
 
   conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   user         UserProfile  @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -335,34 +370,34 @@ model ConversationParticipant {
 }
 
 model Message {
-  id             String       @id @default(uuid())
+  id             String   @id @default(uuid())
   conversationId String
   senderId       String
   content        String?
   attachmentUrl  String?
   attachmentType String?
-  createdAt      DateTime     @default(now())
+  createdAt      DateTime @default(now())
 
   conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
-  sender       UserProfile  @relation("UserMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  sender UserProfile @relation("UserMessages", fields: [senderId], references: [id], onDelete: Cascade)
 }
 
 model Notification {
-  id          String         @id @default(cuid())
-  type        NotificationType
-  senderId    String?
-  receiverId  String
-  message     String
-  isRead      Boolean        @default(false)
-  createdAt   DateTime       @default(now())
+  id         String           @id @default(cuid())
+  type       NotificationType
+  senderId   String?
+  receiverId String
+  message    String
+  isRead     Boolean          @default(false)
+  createdAt  DateTime         @default(now())
 
-  sender      UserProfile?    @relation("SentNotifications", fields: [senderId], references: [id], onDelete: Cascade)
-  receiver    UserProfile    @relation("ReceivedNotifications", fields: [receiverId], references: [id], onDelete: Cascade)
+  sender   UserProfile? @relation("SentNotifications", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver UserProfile  @relation("ReceivedNotifications", fields: [receiverId], references: [id], onDelete: Cascade)
 }
 
 model Post {
-  id          String       @id @default(uuid())
+  id          String        @id @default(uuid())
   userId      String
   groupId     String?
   category    PostCategory?
@@ -370,35 +405,36 @@ model Post {
   description String?
   hashtags    String[]
   mediaUrls   String[]
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
 
-  user        UserProfile  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  group       Group?       @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  likes       Like[]
-  comments    Comment[]
+  user     UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
+  group    Group?      @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  likes    Like[]
+  comments Comment[]
+
   @@index([groupId])
 }
 
 model Like {
-  id        String      @id @default(uuid())
+  id        String   @id @default(uuid())
   postId    String
   userId    String
-  createdAt DateTime    @default(now())
+  createdAt DateTime @default(now())
 
-  post      Post        @relation(fields: [postId], references: [id], onDelete: Cascade)
-  user      UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post Post        @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([postId, userId])
 }
 
 model Comment {
-  id        String      @id @default(uuid())
+  id        String   @id @default(uuid())
   postId    String
   userId    String
   content   String
-  createdAt DateTime    @default(now())
+  createdAt DateTime @default(now())
 
-  post      Post        @relation(fields: [postId], references: [id], onDelete: Cascade)
-  user      UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post Post        @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

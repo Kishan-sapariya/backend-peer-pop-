@@ -10,6 +10,7 @@ import {
   getWaitlistStats,
   getUsers,
   getUserStats,
+  setFounder,
 } from "../controller/adminController.js";
 
 const router = express.Router();
@@ -18,6 +19,7 @@ const router = express.Router();
 router.get("/waitlist/stats", protectedRoute, adminRoute, getWaitlistStats);
 router.get("/users/stats", protectedRoute, adminRoute, getUserStats);
 router.get("/users", protectedRoute, adminRoute, getUsers);
+router.patch("/users/:id/founder", protectedRoute, adminRoute, setFounder);
 
 // Waitlist routes (protected + admin only)
 router.get("/waitlist", protectedRoute, adminRoute, getWaitlist);
