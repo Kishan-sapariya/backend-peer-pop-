@@ -94,7 +94,13 @@ export const signup = async (req, res) => {
 
     return res.status(200).json({
       message: `OTP sent to ${email}`,
-      user: newUser,
+      // Never return the raw record — it contains the bcrypt hash and the live OTP.
+      user: {
+        id: newUser.id,
+        username: newUser.username,
+        email: newUser.email,
+        role: newUser.role,
+      },
       success: true,
     });
   } catch (error) {

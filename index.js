@@ -27,6 +27,7 @@ import founderRoutes from "./routes/founderRoute.js";
 import waitlistRoutes from "./routes/waitlistRoute.js";
 import adminRoutes from "./routes/adminRoute.js";
 import passport from "./config/passport.js";
+import { verifyToken } from "./util/generateToken.js";
 import "./cron/updateYoutubeStats.js";
 
 dotenv.config();
@@ -146,6 +147,31 @@ const io = new Server(server, {
 // Track online users: Map<userId, Set<socketId>>
 const onlineUsers = new Map();
 
+// Parse a Cookie header into a plain object.
+const parseCookies = (header) =>
+  Object.fromEntries(
+    (header || "")
+      .split(";")
+      .map((c) => c.trim().split("="))
+      .filter(([k]) => k)
+      .map(([k, ...v]) => [k, decodeURIComponent(v.join("="))])
+  );
+
+// Authenticate the socket from the auth cookie sent in the handshake.
+// We don't reject unauthenticated sockets (so the connection degrades
+// gracefully), but such sockets get no userId and therefore cannot join
+// any user's room — closing the "join someone else's room" eavesdrop hole.
+io.use((socket, next) => {
+  try {
+    const cookies = parseCookies(socket.handshake.headers.cookie);
+    const decoded = cookies.token ? verifyToken(cookies.token) : null;
+    socket.userId = decoded?.id || null;
+  } catch {
+    socket.userId = null;
+  }
+  next();
+});
+
 io.on("connection", (socket) => {
   console.log(
     "🔌 Client connected:",
@@ -153,9 +179,14 @@ io.on("connection", (socket) => {
     socket.handshake.headers.origin,
   );
 
-  socket.on("join", (userId) => {
+  socket.on("join", () => {
+    // Use the authenticated userId from the handshake, NOT a client-sent value.
+    const userId = socket.userId;
+    if (!userId) {
+      console.log("⛔ Unauthenticated socket tried to join; ignoring");
+      return;
+    }
     socket.join(userId);
-    socket.userId = userId;
 
     // Add user to online users
     if (!onlineUsers.has(userId)) {
@@ -173,7 +204,8 @@ io.on("connection", (socket) => {
   });
 
   // Explicit leave event for immediate offline status (called on logout)
-  socket.on("leave", (userId) => {
+  socket.on("leave", () => {
+    const userId = socket.userId;
     if (userId && onlineUsers.has(userId)) {
       onlineUsers.get(userId).delete(socket.id);
 

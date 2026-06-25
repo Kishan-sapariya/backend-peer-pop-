@@ -224,19 +224,23 @@ export const sendMessages = async (req, res) => {
       return res.status(400).json({ message: "Conversation id not provided" });
     }
 
-    if (!senderId || !receiverId) {
-      return res.status(400).json({ message: "Sender or receiver missing" });
+    if (!senderId) {
+      return res.status(400).json({ message: "Sender missing" });
     }
 
     if (!content && !attachmentUrl) {
       return res.status(400).json({ message: "Message content required" });
     }
 
-    const conversation = await prisma.conversation.findUnique({
-      where: { id: conversationId },
+    // Authorization: the sender must be a participant of this conversation.
+    // (Also implicitly confirms the conversation exists.)
+    const senderParticipant = await prisma.conversationParticipant.findFirst({
+      where: { conversationId, userId: senderId },
     });
-    if (!conversation) {
-      return res.status(404).json({ message: "Conversation not found" });
+    if (!senderParticipant) {
+      return res
+        .status(403)
+        .json({ message: "Not authorized to message this conversation" });
     }
 
     const newMessage = await prisma.message.create({
@@ -252,18 +256,17 @@ export const sendMessages = async (req, res) => {
       },
     });
 
-    // emit new message
-    io.to(receiverId).emit("receiveMessage", newMessage);
-    io.to(senderId).emit("receiveMessage", newMessage);
-
-    // also update conversation lastMessage in real-time
-    io.to(receiverId).emit("conversationUpdated", {
-      conversationId,
-      lastMessage: newMessage,
+    // Emit to the conversation's real participants — never a client-supplied receiverId.
+    const participants = await prisma.conversationParticipant.findMany({
+      where: { conversationId },
+      select: { userId: true },
     });
-    io.to(senderId).emit("conversationUpdated", {
-      conversationId,
-      lastMessage: newMessage,
+    participants.forEach(({ userId }) => {
+      io.to(userId).emit("receiveMessage", newMessage);
+      io.to(userId).emit("conversationUpdated", {
+        conversationId,
+        lastMessage: newMessage,
+      });
     });
 
     return res.status(200).json({
