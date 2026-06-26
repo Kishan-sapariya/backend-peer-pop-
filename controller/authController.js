@@ -470,22 +470,22 @@ export async function searchUsers(req, res) {
         { username: { contains: q, mode: "insensitive" } },
         {
           creatorProfile: {
-            is: { data: { path: ["firstName"], string_starts_with: q } },
+            is: { data: { path: ["personalInfo", "firstName"], string_starts_with: q } },
           },
         },
         {
           creatorProfile: {
-            is: { data: { path: ["firstName"], string_contains: q } },
+            is: { data: { path: ["personalInfo", "firstName"], string_contains: q } },
           },
         },
         {
           creatorProfile: {
-            is: { data: { path: ["lastName"], string_starts_with: q } },
+            is: { data: { path: ["personalInfo", "lastName"], string_starts_with: q } },
           },
         },
         {
           creatorProfile: {
-            is: { data: { path: ["lastName"], string_contains: q } },
+            is: { data: { path: ["personalInfo", "lastName"], string_contains: q } },
           },
         },
         {
