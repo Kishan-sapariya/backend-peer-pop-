@@ -114,7 +114,7 @@ app.use("/api/waitlist", waitlistRoutes);
 app.use((err, req, res, next) => {
   if (err?.name === "MulterError") {
     if (err.code === "LIMIT_FILE_SIZE") {
-      const maxMb = Number(process.env.MAX_UPLOAD_MB) || 50;
+      const maxMb = Number(process.env.MAX_VIDEO_MB) || 100;
       return res
         .status(413)
         .json({ message: `File too large. Maximum size is ${maxMb}MB.` });
