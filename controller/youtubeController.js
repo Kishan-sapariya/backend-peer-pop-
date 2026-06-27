@@ -126,9 +126,14 @@ export const getYoutubeStats = async (req, res) => {
     });
 
     if (!stats) {
-      return res
-        .status(404)
-        .json({ message: "YouTube stats not found for this profile" });
+      // No stats row yet — e.g. the YouTube channel hasn't been connected/synced
+      // by the cron job. This is an expected empty state, not an error, so return
+      // 200 with null stats and let the client render an empty/connect state
+      // instead of throwing on a 404.
+      return res.status(200).json({
+        message: "No YouTube stats available for this profile yet",
+        stats: null,
+      });
     }
 
     return res.status(200).json({

@@ -15,7 +15,17 @@ router.get("/auth", (req, res) => {
   );
 
   const state = crypto.randomUUID();
-  stateStore.set(state, true);
+
+  // Where to send the user back to after a successful connect. Only allow
+  // internal relative paths (must start with a single "/") to prevent the
+  // callback from being turned into an open redirect.
+  const rawRedirect =
+    typeof req.query.redirect === "string" ? req.query.redirect : "";
+  const safeRedirect =
+    rawRedirect.startsWith("/") && !rawRedirect.startsWith("//")
+      ? rawRedirect
+      : "";
+  stateStore.set(state, { redirect: safeRedirect });
 
   // If user clicks "Try another account", we attach ?select=1
   const forceSelect = req.query.select === "1";
@@ -41,7 +51,9 @@ router.get("/callback", async (req, res) => {
       `${process.env.FRONTEND_URL}/onboarding/youtuber/error?reason=invalid_state`
     );
   }
+  const storedState = stateStore.get(state);
   stateStore.delete(state);
+  const returnPath = storedState?.redirect || "/onboarding/youtuber";
 
   // Verify logged in user
   const token = req.cookies.token;
@@ -126,8 +138,9 @@ router.get("/callback", async (req, res) => {
       create: { userProfileId: userId, stats: youtubeData },
     });
 
+    const separator = returnPath.includes("?") ? "&" : "?";
     return res.redirect(
-      `${process.env.FRONTEND_URL}/onboarding/youtuber?connected=1`
+      `${process.env.FRONTEND_URL}${returnPath}${separator}connected=1`
     );
   } catch (err) {
     console.error("YouTube OAuth failed:", err);
