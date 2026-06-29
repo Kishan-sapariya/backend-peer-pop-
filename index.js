@@ -21,6 +21,7 @@ import conversationRoutes from "./routes/conversationRoute.js";
 import notificationRoutes from "./routes/notificationRoute.js";
 import feedsRoutes from "./routes/feedsRoute.js";
 import groupRoutes from "./routes/groupRoute.js";
+import publicRoutes from "./routes/publicRoute.js";
 import accountsRoutes from "./routes/accountRoute.js";
 import businessRoutes from "./routes/businessRoute.js";
 import founderRoutes from "./routes/founderRoute.js";
@@ -108,6 +109,7 @@ app.use("/api/business", businessRoutes);
 app.use("/api/founder", founderRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/group", groupRoutes);
+app.use("/api/public", publicRoutes);
 app.use("/api/waitlist", waitlistRoutes);
 
 // Turn upload rejections (size / type) into clean JSON instead of a 500.
