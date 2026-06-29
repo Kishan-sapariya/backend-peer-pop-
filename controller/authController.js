@@ -458,7 +458,7 @@ export const uploadCoverImage = async (req, res) => {
 
 export async function searchUsers(req, res) {
   try {
-    const { q, creatorType, location, cursor, limit = 10 } = req.query;
+    const { q, creatorType, location, tier, cursor, limit = 10 } = req.query;
 
     const take = Math.min(parseInt(limit) || 10, 50);
 
@@ -533,6 +533,21 @@ export async function searchUsers(req, res) {
             creatorType: { in: types },
           },
         },
+      });
+    }
+
+    // 🏅 Filter by completion tier (Rising / Elite / Pro), stored in the
+    // profile's JSON `data.completionTier`.
+    if (tier) {
+      const tiers = Array.isArray(tier) ? tier : tier.split(",");
+      AND.push({
+        OR: tiers.map((t) => ({
+          creatorProfile: {
+            is: {
+              data: { path: ["completionTier"], equals: t },
+            },
+          },
+        })),
       });
     }
 
