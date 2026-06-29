@@ -1,4 +1,5 @@
 import prisma from "../util/prisma.js";
+import { calculateProfileCompletion } from "../util/profileConfig.js";
 
 export const createMusicianProfile = async (req, res) => {
   const { id: userId } = req.user;
@@ -71,6 +72,10 @@ export const getMusicianProfileByUsername = async (req, res) => {
       profile: {
         ...profile,
         userProfile: user,
+        completion: calculateProfileCompletion(
+          profile.creatorType,
+          profile.data
+        ),
       },
     });
   } catch (error) {

@@ -1,4 +1,5 @@
 import prisma from "../util/prisma.js";
+import { calculateProfileCompletion } from "../util/profileConfig.js";
 
 export const createFilmMakerProfile = async (req, res) => {
   const { id: userId } = req.user;
@@ -69,6 +70,10 @@ export const getFilmMakerProfileByUsername = async (req, res) => {
       profile: {
         ...profile,
         userProfile: user,
+        completion: calculateProfileCompletion(
+          profile.creatorType,
+          profile.data
+        ),
       },
     });
   } catch (error) {
