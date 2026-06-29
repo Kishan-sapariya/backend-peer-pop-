@@ -1,6 +1,7 @@
 import bcrypt from "bcrypt";
 import crypto from "crypto";
 import prisma from "../util/prisma.js";
+import { calculateProfileCompletion } from "../util/profileConfig.js";
 import { sendOTP } from "../util/sendEmail.js";
 import { generateToken, setCookieToken } from "../util/generateToken.js";
 import cloudinary, {
@@ -627,7 +628,18 @@ export async function searchUsers(req, res) {
     const nextCursor =
       users.length === take ? users[users.length - 1].id : null;
 
-    res.json({ users, nextCursor });
+    // Attach the completion tier (Rising/Elite/Pro) as a discovery signal.
+    const usersWithTier = users.map((u) => ({
+      ...u,
+      tier: u.creatorProfile
+        ? calculateProfileCompletion(
+            u.creatorProfile.creatorType,
+            u.creatorProfile.data
+          ).tier
+        : null,
+    }));
+
+    res.json({ users: usersWithTier, nextCursor });
   } catch (error) {
     console.error("Error in searchUsers:", error);
     res.status(500).json({ message: "Something went wrong" });
