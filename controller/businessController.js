@@ -167,7 +167,7 @@ export const postBusinessDetails = async (req, res) => {
   } catch (error) {
     console.error("Error in postBusinessDetails:", error);
     return res.status(500).json({
-      message: error.message || "Error updating business profile",
+      message: "Something went wrong while updating your profile — please try again.",
     });
   }
 };
@@ -367,7 +367,7 @@ export const reuploadBusinessDocuments = async (req, res) => {
   } catch (error) {
     console.error("Error in reuploadBusinessDocuments:", error);
     return res.status(500).json({
-      message: error.message || "Error re-uploading documents",
+      message: "Something went wrong while re-uploading — please try again.",
     });
   }
 };

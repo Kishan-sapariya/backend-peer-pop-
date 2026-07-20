@@ -50,7 +50,12 @@ export const createGroup = async (req, res) => {
       return res.status(409).json({ message: "Group name already exists." });
     }
     const status = error.status || 500;
-    return res.status(status).json({ message: error.message });
+    return res.status(status).json({
+      message:
+        status < 500
+          ? error.message
+          : "Something went wrong on our end — please try again.",
+    });
   }
 };
 
@@ -81,7 +86,12 @@ export const deleteGroup = async (req, res) => {
     });
   } catch (error) {
     const status = error.status || 500;
-    return res.status(status).json({ message: error.message });
+    return res.status(status).json({
+      message:
+        status < 500
+          ? error.message
+          : "Something went wrong on our end — please try again.",
+    });
   }
 };
 
@@ -125,7 +135,12 @@ export const updateGroup = async (req, res) => {
       return res.status(409).json({ message: "Group name already exists." });
     }
     const status = error.status || 500;
-    return res.status(status).json({ message: error.message });
+    return res.status(status).json({
+      message:
+        status < 500
+          ? error.message
+          : "Something went wrong on our end — please try again.",
+    });
   }
 };
 
@@ -282,7 +297,7 @@ export const joinGroup = async (req, res) => {
     console.error("joinGroup error:", error);
     return res
       .status(500)
-      .json({ message: error.message || "Something went wrong" });
+      .json({ message: "Something went wrong on our end — please try again." });
   }
 };
 
@@ -334,7 +349,7 @@ export const getJoinRequestsForGroup = async (req, res) => {
     console.error("getJoinRequestsForGroup error:", error);
     return res
       .status(500)
-      .json({ message: error.message || "Something went wrong" });
+      .json({ message: "Something went wrong on our end — please try again." });
   }
 };
 
@@ -437,7 +452,7 @@ export const respondToJoinRequest = async (req, res) => {
     console.error("respondToJoinRequest error:", error);
     return res
       .status(500)
-      .json({ message: error.message || "Something went wrong" });
+      .json({ message: "Something went wrong on our end — please try again." });
   }
 };
 
@@ -507,7 +522,12 @@ export const fetchJoinedGroup = async (req, res) => {
       .json({ message: "Fetched joined groups successfully", groups });
   } catch (error) {
     const status = error.status || 500;
-    return res.status(status).json({ message: error.message });
+    return res.status(status).json({
+      message:
+        status < 500
+          ? error.message
+          : "Something went wrong on our end — please try again.",
+    });
   }
 };
 
@@ -518,7 +538,7 @@ export const fetchGroupById = async (req, res) => {
     if (!userId)
       return res.status(401).json({ message: "Authentication required" });
     if (!groupId)
-      return res.status(404).josn({ message: "Group id is required" });
+      return res.status(400).json({ message: "Group id is required" });
     const group = await prisma.group.findUnique({
       where: { id: groupId },
       select: {
@@ -536,7 +556,12 @@ export const fetchGroupById = async (req, res) => {
       .json({ message: "Fetched group successfully", group });
   } catch (error) {
     const status = error.status || 500;
-    return res.status(status).json({ message: error.message });
+    return res.status(status).json({
+      message:
+        status < 500
+          ? error.message
+          : "Something went wrong on our end — please try again.",
+    });
   }
 };
 
