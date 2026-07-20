@@ -64,16 +64,49 @@ export const signup = async (req, res) => {
     const generateOtp = crypto.randomInt(100000, 1000000).toString();
     const otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
 
-    const newUser = await prisma.userProfile.create({
-      data: {
-        username,
-        email,
-        password: hashedPassword,
-        role,
-        otp: generateOtp,
-        otpExpiry,
-      },
-    });
+    // `username` is the display name entered at signup, but the column is
+    // @unique. Derive a unique value so two people with the same name don't
+    // crash signup (P2002) — pick the lowest free numeric suffix.
+    let uniqueUsername = username.trim();
+    let suffix = 1;
+    while (
+      await prisma.userProfile.findUnique({
+        where: { username: uniqueUsername },
+      })
+    ) {
+      suffix += 1;
+      uniqueUsername = `${username.trim()}${suffix}`;
+    }
+
+    const baseUserData = {
+      email,
+      password: hashedPassword,
+      role,
+      otp: generateOtp,
+      otpExpiry,
+    };
+
+    let newUser;
+    try {
+      newUser = await prisma.userProfile.create({
+        data: { username: uniqueUsername, ...baseUserData },
+      });
+    } catch (e) {
+      // Rare race: another signup claimed the username between the check and
+      // the insert — retry once with a random suffix.
+      if (e.code === "P2002" && e.meta?.target?.includes("username")) {
+        newUser = await prisma.userProfile.create({
+          data: {
+            username: `${username.trim()}${Math.floor(
+              1000 + Math.random() * 9000
+            )}`,
+            ...baseUserData,
+          },
+        });
+      } else {
+        throw e;
+      }
+    }
 
     if (role === "BUSINESS") {
       await prisma.businessProfile.create({
