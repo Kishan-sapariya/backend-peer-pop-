@@ -1,4 +1,5 @@
 import prisma from "../util/prisma.js";
+import { sendWelcomeEmail } from "../util/sendEmail.js";
 
 /**
  * Build a month-by-month timeline of signups from a list of records that each
@@ -417,6 +418,38 @@ export const setFounder = async (req, res) => {
   } catch (error) {
     console.error("Error setting founder:", error);
     return res.status(500).json({ success: false, message: "Internal Server Error" });
+  }
+};
+
+// Admin action: (re)send the welcome email to an existing user — useful for
+// users who signed up before the automated welcome email existed.
+export const sendWelcomeMailToUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const user = await prisma.userProfile.findUnique({
+      where: { id },
+      select: { email: true, username: true },
+    });
+    if (!user) {
+      return res.status(404).json({ message: "We couldn't find that user." });
+    }
+
+    const result = await sendWelcomeEmail(user.email, user.username);
+    if (!result?.success) {
+      return res.status(502).json({
+        message: "Couldn't send the welcome email — please try again.",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: `Welcome email sent to ${user.email}`,
+    });
+  } catch (error) {
+    console.error("Error sending welcome email:", error);
+    return res.status(500).json({
+      message: "Something went wrong on our end — please try again.",
+    });
   }
 };
 

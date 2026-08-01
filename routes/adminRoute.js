@@ -11,6 +11,7 @@ import {
   getUsers,
   getUserStats,
   setFounder,
+  sendWelcomeMailToUser,
 } from "../controller/adminController.js";
 
 const router = express.Router();
@@ -20,6 +21,12 @@ router.get("/waitlist/stats", protectedRoute, adminRoute, getWaitlistStats);
 router.get("/users/stats", protectedRoute, adminRoute, getUserStats);
 router.get("/users", protectedRoute, adminRoute, getUsers);
 router.patch("/users/:id/founder", protectedRoute, adminRoute, setFounder);
+router.post(
+  "/users/:id/welcome-email",
+  protectedRoute,
+  adminRoute,
+  sendWelcomeMailToUser
+);
 
 // Waitlist routes (protected + admin only)
 router.get("/waitlist", protectedRoute, adminRoute, getWaitlist);
