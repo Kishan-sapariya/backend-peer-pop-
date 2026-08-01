@@ -2,7 +2,7 @@ import bcrypt from "bcrypt";
 import crypto from "crypto";
 import prisma from "../util/prisma.js";
 import { calculateProfileCompletion } from "../util/profileConfig.js";
-import { sendOTP } from "../util/sendEmail.js";
+import { sendOTP, sendWelcomeEmail } from "../util/sendEmail.js";
 import { generateToken, setCookieToken } from "../util/generateToken.js";
 import cloudinary, {
   getCloudinaryPublicId,
@@ -170,6 +170,11 @@ export const verifyOtp = async (req, res) => {
         otpExpiry: null,
       },
     });
+
+    // Send the welcome email now that signup is complete (fire-and-forget —
+    // it never throws, so it can't affect the verification response).
+    sendWelcomeEmail(updateUserProfile.email, updateUserProfile.username);
+
     const token = generateToken({
       id: updateUserProfile.id,
       email: updateUserProfile.email,

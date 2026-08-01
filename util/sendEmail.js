@@ -155,3 +155,86 @@ export const sendWaitlistConfirmationEmail = async (email, name, role) => {
     return { success: false, error: "Email send failed" };
   }
 };
+
+// Welcome email sent after a user completes signup (verifies their email).
+// Never throws — a mail hiccup must not break the signup flow.
+export const sendWelcomeEmail = async (email, name) => {
+  const appUrl = process.env.FRONTEND_URL || "https://peerpop.in";
+  const greetingName = name ? ` ${name}` : "";
+  const year = new Date().getFullYear();
+
+  const step = (text) => `
+    <tr>
+      <td style="padding:5px 0;vertical-align:top;width:18px;">
+        <span style="color:#eab308;font-weight:800;">›</span>
+      </td>
+      <td style="padding:5px 0 5px 10px;">${text}</td>
+    </tr>`;
+
+  try {
+    const res = await fetch(BREVO_URL, {
+      method: "POST",
+      headers: {
+        "api-key": BREVO_API_KEY,
+        "Content-Type": "application/json",
+        accept: "application/json",
+      },
+      body: JSON.stringify({
+        sender: { name: "Peerpop", email: "no-reply@peerpop.in" },
+        to: [{ email }],
+        subject: "Welcome to Peerpop!",
+        htmlContent: `
+  <div style="background:#f4f4f5;padding:24px 0;font-family:Arial,Helvetica,sans-serif;">
+    <div style="max-width:600px;margin:0 auto;background:#ffffff;border-radius:14px;overflow:hidden;border:1px solid #eeeeee;">
+      <!-- Header -->
+      <div style="background:#facc15;padding:22px 32px;text-align:center;">
+        <h1 style="margin:0;font-size:26px;font-weight:800;color:#111111;letter-spacing:0.5px;">Peerpop</h1>
+      </div>
+      <!-- Body -->
+      <div style="padding:32px;color:#1f2937;font-size:15px;line-height:1.7;">
+        <p style="margin:0 0 16px;">Hi${greetingName},</p>
+        <h2 style="margin:0 0 16px;font-size:22px;color:#111111;font-weight:800;">Welcome to Peerpop! 🎉</h2>
+        <p style="margin:0 0 16px;">We're excited to have you join our growing community of creators, artists, performers, influencers, and professionals.</p>
+        <p style="margin:0 0 20px;">Peerpop is designed to help you showcase your work, grow your audience, and unlock new opportunities through a professional digital presence.</p>
+
+        <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:18px 20px;margin:0 0 24px;">
+          <p style="margin:0 0 10px;font-weight:700;color:#111111;">Here's what to do next:</p>
+          <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;font-size:15px;color:#1f2937;">
+            ${step("Complete your profile with your bio, photos, and social links.")}
+            ${step("Add your work, portfolio, or content to make your profile stand out.")}
+            ${step("Keep your profile updated so brands and collaborators can discover you.")}
+          </table>
+        </div>
+
+        <div style="text-align:center;margin:0 0 26px;">
+          <a href="${appUrl}" style="display:inline-block;background:#facc15;color:#111111;text-decoration:none;font-weight:700;font-size:15px;padding:13px 30px;border-radius:9999px;">
+            Complete your profile →
+          </a>
+        </div>
+
+        <p style="margin:0 0 16px;">Our team is continuously improving the platform and adding new features to help creators succeed. If you have any questions, feedback, or need assistance setting up your profile, simply reply to this email—we're always happy to help.</p>
+        <p style="margin:0 0 6px;">Thank you for joining Peerpop.</p>
+        <p style="margin:0 0 20px;font-weight:700;color:#111111;">Welcome aboard!</p>
+        <p style="margin:0;color:#6b7280;">Best regards,<br/><strong style="color:#111111;">Team Peerpop</strong></p>
+      </div>
+      <!-- Footer -->
+      <div style="background:#111111;padding:18px 32px;text-align:center;">
+        <p style="margin:0;color:#9ca3af;font-size:12px;">© ${year} Peerpop · Where creators meet opportunity</p>
+      </div>
+    </div>
+  </div>
+`,
+      }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      console.error("❌ Brevo API error (welcome):", data);
+      return { success: false, error: "Email send failed" };
+    }
+    return { success: true, messageId: data.messageId };
+  } catch (error) {
+    console.error("❌ Welcome email failed:", error.message || error);
+    return { success: false, error: "Email send failed" };
+  }
+};
