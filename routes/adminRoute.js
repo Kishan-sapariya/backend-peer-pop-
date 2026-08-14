@@ -12,6 +12,8 @@ import {
   getUserStats,
   setFounder,
   sendWelcomeMailToUser,
+  getRecipients,
+  sendBulkEmail,
 } from "../controller/adminController.js";
 
 const router = express.Router();
@@ -27,6 +29,10 @@ router.post(
   adminRoute,
   sendWelcomeMailToUser
 );
+
+// Admin email composer
+router.get("/recipients", protectedRoute, adminRoute, getRecipients);
+router.post("/send-email", protectedRoute, adminRoute, sendBulkEmail);
 
 // Waitlist routes (protected + admin only)
 router.get("/waitlist", protectedRoute, adminRoute, getWaitlist);

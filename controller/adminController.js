@@ -1,5 +1,5 @@
 import prisma from "../util/prisma.js";
-import { sendWelcomeEmail } from "../util/sendEmail.js";
+import { sendWelcomeEmail, sendCustomEmail } from "../util/sendEmail.js";
 
 /**
  * Build a month-by-month timeline of signups from a list of records that each
@@ -375,6 +375,105 @@ export const getUsers = async (req, res) => {
   } catch (error) {
     console.error("Error fetching users:", error);
     return res.status(500).json({ success: false, message: "Internal Server Error" });
+  }
+};
+
+// Return every user matching the role/search filters (no pagination) so the
+// email composer can offer "select all". Capped for safety. Includes the
+// emailVerified flag so the UI can offer "select all verified".
+export const getRecipients = async (req, res) => {
+  try {
+    const { role, search } = req.query;
+
+    const where = {};
+    if (role) where.role = role;
+    if (search) {
+      where.OR = [
+        { username: { contains: search, mode: "insensitive" } },
+        { email: { contains: search, mode: "insensitive" } },
+      ];
+    }
+
+    const recipients = await prisma.userProfile.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      take: 2000,
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        role: true,
+        emailVerified: true,
+      },
+    });
+
+    return res.status(200).json({ success: true, recipients });
+  } catch (error) {
+    console.error("Error fetching recipients:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Couldn't load recipients — please try again.",
+    });
+  }
+};
+
+// Send an admin-composed email to one or many selected users. Each recipient
+// gets an individual, personalized email (privacy-safe — no shared To/CC).
+export const sendBulkEmail = async (req, res) => {
+  try {
+    const { userIds, subject, message, regards } = req.body || {};
+
+    if (!Array.isArray(userIds) || userIds.length === 0) {
+      return res.status(400).json({ message: "Please select at least one recipient." });
+    }
+    if (!subject || !subject.trim()) {
+      return res.status(400).json({ message: "Please enter a subject." });
+    }
+    if (!message || !message.trim()) {
+      return res.status(400).json({ message: "Please enter a message." });
+    }
+    if (userIds.length > 1000) {
+      return res.status(400).json({ message: "You can send to at most 1000 users at once." });
+    }
+
+    const users = await prisma.userProfile.findMany({
+      where: { id: { in: userIds } },
+      select: { id: true, email: true, username: true },
+    });
+
+    const valid = users.filter((u) => u.email);
+    if (valid.length === 0) {
+      return res.status(404).json({ message: "None of the selected users have an email on file." });
+    }
+
+    let sent = 0;
+    const failed = [];
+    // Send sequentially to stay well within Brevo rate limits.
+    for (const u of valid) {
+      const result = await sendCustomEmail(u.email, u.username, {
+        subject: subject.trim(),
+        message: message.trim(),
+        regards: (regards || "").trim(),
+      });
+      if (result?.success) sent += 1;
+      else failed.push(u.email);
+    }
+
+    return res.status(200).json({
+      success: true,
+      sent,
+      failed: failed.length,
+      total: valid.length,
+      message:
+        failed.length === 0
+          ? `Email sent to ${sent} ${sent === 1 ? "user" : "users"}.`
+          : `Sent to ${sent} of ${valid.length}. ${failed.length} failed.`,
+    });
+  } catch (error) {
+    console.error("Error sending bulk email:", error);
+    return res.status(500).json({
+      message: "Something went wrong while sending — please try again.",
+    });
   }
 };
 

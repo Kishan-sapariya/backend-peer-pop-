@@ -156,6 +156,128 @@ export const sendWaitlistConfirmationEmail = async (email, name, role) => {
   }
 };
 
+// Escape user-provided text so it can't inject HTML into the email template.
+const escapeHtml = (str = "") =>
+  String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
+const LINK_STYLE = "color:#a16207;font-weight:600;text-decoration:underline;";
+
+// Turn links in already-escaped text into <a> tags. Supports two forms:
+//   [label](https://url)  -> clickable link with custom text
+//   https://url           -> clickable link showing the URL
+// Uses placeholder tokens so a URL is never linkified twice.
+const linkifyEscaped = (escaped = "") => {
+  const links = [];
+  const stash = (html) => {
+    links.push(html);
+    return `\x00${links.length - 1}\x00`;
+  };
+
+  const s = escaped
+    // [label](url) — markdown-style link with custom text
+    .replace(/\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g, (_m, label, url) =>
+      stash(`<a href="${url}" style="${LINK_STYLE}">${label}</a>`)
+    )
+    // bare http(s) URL (trailing sentence punctuation kept outside the link)
+    .replace(/(https?:\/\/[^\s<]+)/g, (url) => {
+      const trailing = (url.match(/[.,;:!?]+$/) || [""])[0];
+      const clean = url.slice(0, url.length - trailing.length);
+      return stash(`<a href="${clean}" style="${LINK_STYLE}">${clean}</a>`) + trailing;
+    });
+
+  return s.replace(/\x00(\d+)\x00/g, (_m, i) => links[Number(i)]);
+};
+
+// Turn a plain-text message into safe HTML paragraphs.
+// Blank lines separate paragraphs; single newlines become <br/>.
+const textToHtmlParagraphs = (text = "") =>
+  escapeHtml(text.trim())
+    .split(/\n{2,}/)
+    .map(
+      (para) =>
+        `<p style="margin:0 0 16px;">${linkifyEscaped(para).replace(
+          /\n/g,
+          "<br/>"
+        )}</p>`
+    )
+    .join("");
+
+// Build the branded HTML for an admin-composed broadcast email.
+// Exported so the exact same markup can be unit-tested / previewed.
+export const buildCustomEmailHtml = ({ name, subject, message, regards }) => {
+  const greetingName = name ? escapeHtml(name) : "there";
+  const year = new Date().getFullYear();
+  const bodyHtml = textToHtmlParagraphs(message);
+  const regardsHtml = regards
+    ? `<div style="margin:28px 0 0;padding-top:20px;border-top:1px solid #eeeeee;color:#374151;">
+         ${textToHtmlParagraphs(regards)}
+       </div>`
+    : "";
+
+  return `
+  <div style="background:#f4f4f5;padding:24px 0;font-family:Arial,Helvetica,sans-serif;">
+    <div style="max-width:600px;margin:0 auto;background:#ffffff;border-radius:14px;overflow:hidden;border:1px solid #eeeeee;">
+      <!-- Header -->
+      <div style="background:#facc15;padding:22px 32px;text-align:center;">
+        <h1 style="margin:0;font-size:26px;font-weight:800;color:#111111;letter-spacing:0.5px;">Peerpop</h1>
+      </div>
+      <!-- Body -->
+      <div style="padding:32px;color:#1f2937;font-size:15px;line-height:1.7;">
+        <p style="margin:0 0 20px;">Hi ${greetingName},</p>
+        ${
+          subject
+            ? `<h2 style="margin:0 0 18px;font-size:21px;color:#111111;font-weight:800;line-height:1.35;">${escapeHtml(
+                subject
+              )}</h2>`
+            : ""
+        }
+        ${bodyHtml}
+        ${regardsHtml}
+      </div>
+      <!-- Footer -->
+      <div style="background:#111111;padding:18px 32px;text-align:center;">
+        <p style="margin:0;color:#9ca3af;font-size:12px;">© ${year} Peerpop · Where creators meet opportunity</p>
+      </div>
+    </div>
+  </div>`;
+};
+
+// Send an admin-composed email to a single recipient. Personalized greeting,
+// branded template. Never throws — returns { success }.
+export const sendCustomEmail = async (email, name, { subject, message, regards }) => {
+  try {
+    const res = await fetch(BREVO_URL, {
+      method: "POST",
+      headers: {
+        "api-key": BREVO_API_KEY,
+        "Content-Type": "application/json",
+        accept: "application/json",
+      },
+      body: JSON.stringify({
+        sender: { name: "Peerpop", email: "no-reply@peerpop.in" },
+        to: [{ email }],
+        subject,
+        htmlContent: buildCustomEmailHtml({ name, subject, message, regards }),
+      }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      console.error("❌ Brevo API error (custom):", data);
+      return { success: false, error: "Email send failed" };
+    }
+    return { success: true, messageId: data.messageId };
+  } catch (error) {
+    console.error("❌ Custom email failed:", error.message || error);
+    return { success: false, error: "Email send failed" };
+  }
+};
+
 // Welcome email sent after a user completes signup (verifies their email).
 // Never throws — a mail hiccup must not break the signup flow.
 export const sendWelcomeEmail = async (email, name) => {
